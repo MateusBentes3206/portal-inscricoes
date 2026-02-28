@@ -42,11 +42,10 @@
       </div>
     </div>
 
-    <!-- Lista de tickets -->
     <div id="tickets-list" class="links-groups"></div>
     <div id="tickets-empty" class="empty" hidden>Nenhum ticket encontrado.</div>
 
-    <!-- Modal para criar/editar ticket -->
+    <!-- Modal -->
     <div id="ticket-modal" class="modal-overlay" style="display:none;">
       <div class="modal" style="max-width:500px;">
         <div class="modal-head">
@@ -103,12 +102,10 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Firebase SDK (deve ser o mesmo usado nas outras páginas) -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
-    // SUAS CONFIGURAÇÕES DO FIREBASE (copiadas do index.html)
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -122,47 +119,65 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // 🔥 Persistência LOCAL
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => console.log('✅ Persistência LOCAL definida em tickets'))
+      .catch(error => console.error('❌ Erro na persistência:', error));
+
     let currentUser = null;
     let currentStatus = 'aberto';
+    let authChecked = false; // 🔥 Flag para evitar redirecionamento prematuro
 
-    // Verificar autenticação
+    // 🔥 Listener com flag
     auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        window.location.href = './login.html';
-        return;
-      }
-      const doc = await db.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        currentUser = { uid: user.uid, ...doc.data() };
-        carregarTickets();
-      } else {
-        // Criar perfil se não existir (improvável)
-        const newUser = {
-          email: user.email,
-          nome: user.displayName || 'Usuário',
-          tipo: 'comum',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await db.collection('users').doc(user.uid).set(newUser);
-        currentUser = { uid: user.uid, ...newUser };
-        carregarTickets();
-      }
-      // Atualizar badge do menu (se existir)
-      const badge = document.getElementById('tickets-badge');
-      if (badge) {
-        // O badge já é atualizado pelo auth.js, mas aqui também podemos garantir
-        let query = db.collection('tickets').where('status', '==', 'aberto');
-        if (currentUser.tipo === 'comum') {
-          query = query.where('criadoPor', '==', currentUser.uid);
+      console.log('🔍 tickets: onAuthStateChanged', user ? user.email : 'null');
+      if (!authChecked) {
+        authChecked = true;
+        if (!user) {
+          console.log('tickets: redirecionando para login (usuário não logado)');
+          window.location.href = './login.html';
+          return;
         }
-        query.onSnapshot(snapshot => {
-          badge.textContent = snapshot.size;
-          badge.style.display = snapshot.size === 0 ? 'none' : 'inline-block';
-        });
+        // Usuário logado, prossegue
+        try {
+          const doc = await db.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            currentUser = { uid: user.uid, ...doc.data() };
+          } else {
+            // Criar perfil se não existir (improvável)
+            const newUser = {
+              email: user.email,
+              nome: user.displayName || 'Usuário',
+              tipo: 'comum',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('users').doc(user.uid).set(newUser);
+            currentUser = { uid: user.uid, ...newUser };
+          }
+          carregarTickets();
+          // Atualizar badge
+          const badge = document.getElementById('tickets-badge');
+          if (badge) {
+            let query = db.collection('tickets').where('status', '==', 'aberto');
+            if (currentUser.tipo === 'comum') {
+              query = query.where('criadoPor', '==', currentUser.uid);
+            }
+            query.onSnapshot(snapshot => {
+              badge.textContent = snapshot.size;
+              badge.style.display = snapshot.size === 0 ? 'none' : 'inline-block';
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao carregar perfil do usuário:', error);
+          // Talvez redirecionar para uma página de erro, mas não para login
+        }
+      } else {
+        // Se já foi verificado, apenas log
+        console.log('tickets: auth já verificado, usuário:', user ? user.email : 'null');
       }
     });
 
-    // Carregar tickets conforme status e tipo
+    // Funções (mantidas)
     function carregarTickets() {
       let query = db.collection('tickets').where('status', '==', currentStatus);
       if (currentUser.tipo === 'comum') {
@@ -175,7 +190,6 @@
       });
     }
 
-    // Renderizar lista de tickets
     function renderTickets(tickets) {
       const container = document.getElementById('tickets-list');
       const empty = document.getElementById('tickets-empty');
@@ -206,7 +220,7 @@
       });
     }
 
-    // Abrir modal para novo ticket
+    // Eventos (mantidos)
     document.getElementById('new-ticket-btn').addEventListener('click', () => {
       document.getElementById('ticket-id').value = '';
       document.getElementById('cpf-aluno').value = '';
@@ -219,40 +233,41 @@
       document.getElementById('ticket-modal').style.display = 'flex';
     });
 
-    // Salvar ticket (criar ou atualizar)
     document.getElementById('ticket-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const id = document.getElementById('ticket-id').value;
-      const cpf = document.getElementById('cpf-aluno').value;
-      const unidade = document.getElementById('unidade').value;
-      const modalidade = document.getElementById('modalidade').value;
-      const problema = document.getElementById('problema').value;
-      const resolucao = document.getElementById('resolucao').value;
+      try {
+        const id = document.getElementById('ticket-id').value;
+        const cpf = document.getElementById('cpf-aluno').value;
+        const unidade = document.getElementById('unidade').value;
+        const modalidade = document.getElementById('modalidade').value;
+        const problema = document.getElementById('problema').value;
+        const resolucao = document.getElementById('resolucao').value;
 
-      if (id) {
-        // Atualizar (concluir) - usado quando admin conclui
-        await db.collection('tickets').doc(id).update({
-          status: 'concluido',
-          resolucao: resolucao,
-          concluidoPor: currentUser.uid,
-          concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } else {
-        // Criar novo
-        await db.collection('tickets').add({
-          cpfAluno: cpf,
-          unidade: unidade,
-          modalidade: modalidade,
-          problema: problema,
-          status: 'aberto',
-          criadoPor: currentUser.uid,
-          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        if (id) {
+          await db.collection('tickets').doc(id).update({
+            status: 'concluido',
+            resolucao: resolucao,
+            concluidoPor: currentUser.uid,
+            concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          await db.collection('tickets').add({
+            cpfAluno: cpf,
+            unidade: unidade,
+            modalidade: modalidade,
+            problema: problema,
+            status: 'aberto',
+            criadoPor: currentUser.uid,
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+        fecharModal();
+      } catch (error) {
+        console.error('Erro ao salvar ticket:', error);
+        alert('Erro ao salvar: ' + error.message);
       }
-      fecharModal();
     });
 
-    // Funções auxiliares
     window.verTicket = async (id) => {
       const doc = await db.collection('tickets').doc(id).get();
       if (!doc.exists) return;
@@ -276,7 +291,7 @@
           resolucao,
           concluidoPor: currentUser.uid,
           concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }).catch(error => console.error('Erro ao concluir:', error));
       }
     };
 
@@ -287,7 +302,7 @@
           resolucao: '',
           reabertoPor: currentUser.uid,
           reabertoEm: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        }).catch(error => console.error('Erro ao reabrir:', error));
       }
     };
 
@@ -298,7 +313,6 @@
     document.getElementById('modal-close').addEventListener('click', fecharModal);
     document.getElementById('cancel-modal').addEventListener('click', fecharModal);
 
-    // Trocar abas (abertos / concluídos)
     document.querySelectorAll('.tab[data-status]').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
@@ -308,20 +322,13 @@
       });
     });
 
-    // Função de logout (chamada pelo botão)
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
-      });
+      }).catch(error => console.error('Erro no logout:', error));
     };
-
-    // Ajustar visibilidade dos links de login/logout (caso auth.js não esteja presente)
-    // Mas como temos autenticação própria, já gerenciamos.
-    // Se o auth.js estiver incluso, ele também fará isso, mas não há problema.
   </script>
-  <!-- Dark mode (opcional, mesmo script das outras páginas) -->
   <script src="./assets/js/dark-mode.js"></script>
-  <!-- Se quiser usar o auth.js global, pode incluir também, mas não é obrigatório -->
   <!-- <script src="./assets/js/auth.js"></script> -->
 </body>
 </html>
