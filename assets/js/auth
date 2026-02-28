@@ -1,0 +1,88 @@
+// assets/js/auth.js
+(() => {
+  "use strict";
+
+  // Elementos do menu (serão obtidos dinamicamente)
+  let ticketsLink, ticketsBadge, loginLink, logoutBtn;
+
+  // Atualiza a interface de acordo com o usuário logado
+  const updateUI = (user) => {
+    // Busca os elementos no DOM (podem não existir em todas as páginas)
+    ticketsLink = document.getElementById('tickets-link');
+    ticketsBadge = document.getElementById('tickets-badge');
+    loginLink = document.getElementById('login-link');
+    logoutBtn = document.getElementById('logout-btn');
+
+    if (user) {
+      // Usuário logado
+      if (loginLink) loginLink.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      if (ticketsLink) {
+        ticketsLink.style.display = 'inline-block';
+
+        // Busca ou cria o perfil do usuário no Firestore
+        db.collection('users').doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            window.currentUser = { uid: user.uid, ...doc.data() };
+            setupTicketListener(window.currentUser);
+          } else {
+            // Primeiro acesso: cria um perfil padrão
+            const newUser = {
+              email: user.email,
+              nome: user.displayName || 'Usuário',
+              tipo: 'comum',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            db.collection('users').doc(user.uid).set(newUser).then(() => {
+              window.currentUser = { uid: user.uid, ...newUser };
+              setupTicketListener(window.currentUser);
+            });
+          }
+        });
+      }
+    } else {
+      // Nenhum usuário logado
+      if (loginLink) loginLink.style.display = 'inline-block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+      if (ticketsLink) ticketsLink.style.display = 'none';
+      if (ticketsBadge) {
+        ticketsBadge.textContent = '0';
+        ticketsBadge.style.display = 'none';
+      }
+      window.currentUser = null;
+    }
+  };
+
+  // Escuta as mudanças na autenticação
+  auth.onAuthStateChanged(updateUI);
+
+  // Configura o listener em tempo real para a contagem de tickets abertos
+  const setupTicketListener = (user) => {
+    if (!user || !ticketsBadge) return;
+
+    let query;
+    if (user.tipo === 'comum') {
+      // Usuário comum: só vê os próprios tickets
+      query = db.collection('tickets')
+        .where('criadoPor', '==', user.uid)
+        .where('status', '==', 'aberto');
+    } else {
+      // Admin ou super admin: vê todos os tickets abertos
+      query = db.collection('tickets')
+        .where('status', '==', 'aberto');
+    }
+
+    query.onSnapshot(snapshot => {
+      const count = snapshot.size;
+      ticketsBadge.textContent = count;
+      ticketsBadge.style.display = count === 0 ? 'none' : 'inline-block';
+    });
+  };
+
+  // Função global de logout (chamada pelo botão)
+  window.logout = () => {
+    auth.signOut().then(() => {
+      window.location.href = './index.html';
+    });
+  };
+})();

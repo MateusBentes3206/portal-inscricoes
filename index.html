@@ -21,6 +21,10 @@
         <a class="btn btn--nav" href="./links.html">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
+        <!-- Novos links de autenticação -->
+        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
+        <a class="btn btn--nav" href="./login.html" id="login-link">Login</a>
+        <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
         <button class="btn btn--nav" type="button" id="dark-mode-toggle">
@@ -37,7 +41,28 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Scripts -->
+  <!-- Firebase SDK (compatível) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Suas configurações do Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
+      authDomain: "portal-inscricoes-tickets.firebaseapp.com",
+      projectId: "portal-inscricoes-tickets",
+      storageBucket: "portal-inscricoes-tickets.firebasestorage.app",
+      messagingSenderId: "364717584125",
+      appId: "1:364717584125:web:d7099acf6391325c7cd894",
+      measurementId: "G-DW1WGEE9FS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+  </script>
+
+  <!-- Scripts do projeto -->
+  <script defer src="./assets/js/auth.js"></script>
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>

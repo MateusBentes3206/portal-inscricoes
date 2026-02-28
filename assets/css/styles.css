@@ -694,3 +694,17 @@ body.dark-mode .prices-copy-btn:hover {
 
 /* Utilitários */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+/* Badge de tickets no menu */
+#tickets-link .badge {
+  background-color: #dc2626;
+  color: white;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  margin-left: 0.3rem;
+  line-height: 1;
+  border: none;
+  display: inline-block;
+  vertical-align: middle;
+}

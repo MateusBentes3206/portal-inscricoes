@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Sistema de Tickets</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <div class="top-stripe"></div>
+
+  <main class="container app-shell">
+    <header class="site-header">
+      <h1>Acesso ao Sistema de Tickets</h1>
+    </header>
+
+    <nav class="app-nav" aria-label="Navegação principal">
+      <div class="nav-left">
+        <a class="btn btn--nav" href="./index.html">Portal</a>
+        <a class="btn btn--nav" href="./links.html">Central de Links</a>
+      </div>
+      <!-- O botão de modo escuro pode ser mantido se desejar -->
+      <div class="nav-right">
+        <button class="btn btn--nav" type="button" id="dark-mode-toggle">
+          <span class="mode-text">Modo</span>
+          <span class="mode-icon">🌙</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Área de login/registro -->
+    <div class="links-controls" style="max-width: 400px; margin: 0 auto;">
+      <!-- Formulário de Login -->
+      <form id="login-form">
+        <h2>Entrar</h2>
+        <div class="field">
+          <span>E-mail</span>
+          <input type="email" id="email" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>Senha</span>
+          <input type="password" id="password" class="search-input" required>
+        </div>
+        <button type="submit" class="btn btn--accent" style="width:100%;">Entrar</button>
+      </form>
+
+      <p style="margin-top:1rem; text-align:center;">
+        Não tem conta? <a href="#" id="show-register">Registrar</a>
+      </p>
+
+      <!-- Formulário de Registro (inicialmente oculto) -->
+      <form id="register-form" style="display:none; margin-top:1rem;">
+        <h3>Registrar</h3>
+        <div class="field">
+          <span>Nome</span>
+          <input type="text" id="reg-nome" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>E-mail</span>
+          <input type="email" id="reg-email" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>Senha</span>
+          <input type="password" id="reg-password" class="search-input" required>
+        </div>
+        <button type="submit" class="btn btn--accent">Registrar</button>
+        <p style="margin-top:0.5rem;">
+          <a href="#" id="show-login">Voltar para login</a>
+        </p>
+      </form>
+
+      <!-- Mensagem de erro/sucesso -->
+      <div id="login-message" class="empty" style="margin-top:1rem;"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
+  </footer>
+
+  <!-- Firebase SDK (deve vir antes dos scripts) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script>
+    // SUAS CONFIGURAÇÕES DO FIREBASE (copiadas do console)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
+      authDomain: "portal-inscricoes-tickets.firebaseapp.com",
+      projectId: "portal-inscricoes-tickets",
+      storageBucket: "portal-inscricoes-tickets.firebasestorage.app",
+      messagingSenderId: "364717584125",
+      appId: "1:364717584125:web:d7099acf6391325c7cd894",
+      measurementId: "G-DW1WGEE9FS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Elementos do DOM
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterLink = document.getElementById('show-register');
+    const showLoginLink = document.getElementById('show-login');
+    const messageDiv = document.getElementById('login-message');
+
+    // Alternar entre os formulários
+    showRegisterLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+      messageDiv.textContent = ''; // limpa mensagens
+    });
+
+    showLoginLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+      messageDiv.textContent = '';
+    });
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // Redireciona para a página de tickets após login bem-sucedido
+        window.location.href = './tickets.html';
+      } catch (error) {
+        messageDiv.textContent = 'Erro: ' + error.message;
+      }
+    });
+
+    // Registro
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById('reg-nome').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+
+      try {
+        // Cria o usuário no Authentication
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        // Cria o perfil no Firestore com tipo 'comum'
+        await db.collection('users').doc(cred.user.uid).set({
+          nome,
+          email,
+          tipo: 'comum',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Redireciona para tickets
+        window.location.href = './tickets.html';
+      } catch (error) {
+        messageDiv.textContent = 'Erro: ' + error.message;
+      }
+    });
+  </script>
+
+  <!-- Script de modo escuro (opcional) -->
+  <script src="./assets/js/dark-mode.js"></script>
+</body>
+</html>

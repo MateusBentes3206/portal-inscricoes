@@ -21,6 +21,10 @@
         <a class="btn btn--nav is-active" href="./links.html" aria-current="page">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
+        <!-- NOVO: Links do sistema de tickets -->
+        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
+        <a class="btn btn--nav" href="./login.html" id="login-link">Login</a>
+        <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
         <button class="btn btn--nav" type="button" id="dark-mode-toggle">
@@ -30,7 +34,7 @@
       </div>
     </nav>
 
-    <!-- Filtros -->
+    <!-- Filtros (inalterado) -->
     <div class="links-controls">
       <div class="links-controls-grid">
         <div class="field">
@@ -54,14 +58,14 @@
       <button class="btn" type="button" data-action="reset-filters">Limpar filtros</button>
     </div>
 
-    <!-- Lista de links -->
+    <!-- Lista de links (inalterado) -->
     <div id="links-groups" class="links-groups"></div>
     <div id="links-empty" class="empty" hidden>Nenhum link encontrado.</div>
     <div class="load-more-wrapper">
       <button id="links-load-more" class="btn" type="button" data-action="load-more" hidden>Carregar mais</button>
     </div>
 
-    <!-- QA (diagnóstico) -->
+    <!-- QA (diagnóstico) (inalterado) -->
     <section class="links-qa">
       <h2>🔍 Controle de qualidade (QA)</h2>
       <ul id="qa-list"></ul>
@@ -73,6 +77,29 @@
   </footer>
 
   <!-- Scripts -->
+  <!-- NOVO: Firebase SDK (deve vir antes dos outros scripts) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script>
+    // SUAS CONFIGURAÇÕES DO FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
+      authDomain: "portal-inscricoes-tickets.firebaseapp.com",
+      projectId: "portal-inscricoes-tickets",
+      storageBucket: "portal-inscricoes-tickets.firebasestorage.app",
+      messagingSenderId: "364717584125",
+      appId: "1:364717584125:web:d7099acf6391325c7cd894",
+      measurementId: "G-DW1WGEE9FS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+  </script>
+  <!-- NOVO: Script de autenticação global -->
+  <script defer src="./assets/js/auth.js"></script>
+
+  <!-- Scripts existentes (mantenha a ordem original) -->
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>

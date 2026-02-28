@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tickets - Sistema de Suporte</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <div class="top-stripe" aria-hidden="true"></div>
+
+  <main class="container app-shell">
+    <header class="site-header">
+      <h1>Sistema de Tickets</h1>
+      <p class="site-subtitle">Acompanhe e gerencie solicitações</p>
+    </header>
+
+    <nav class="app-nav" aria-label="Navegação principal">
+      <div class="nav-left">
+        <a class="btn btn--nav" href="./index.html">Portal</a>
+        <a class="btn btn--nav" href="./links.html">Central de Links</a>
+        <a class="btn btn--nav is-active" href="./tickets.html">Tickets <span id="tickets-badge" class="badge">0</span></a>
+        <a class="btn btn--nav" href="./login.html" id="login-link" style="display:none;">Login</a>
+        <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
+      </div>
+      <div class="nav-right">
+        <button class="btn btn--nav" type="button" id="dark-mode-toggle">
+          <span class="mode-text">Modo</span>
+          <span class="mode-icon">🌙</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Controles -->
+    <div class="links-controls">
+      <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <button class="btn btn--accent" id="new-ticket-btn">Novo Ticket</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="tab is-active" data-status="aberto">Abertos</button>
+          <button class="tab" data-status="concluido">Concluídos</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de tickets -->
+    <div id="tickets-list" class="links-groups"></div>
+    <div id="tickets-empty" class="empty" hidden>Nenhum ticket encontrado.</div>
+
+    <!-- Modal para criar/editar ticket -->
+    <div id="ticket-modal" class="modal-overlay" style="display:none;">
+      <div class="modal" style="max-width:500px;">
+        <div class="modal-head">
+          <div class="modal-title" id="modal-title">Novo Ticket</div>
+          <button class="modal-close" id="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="ticket-form">
+            <input type="hidden" id="ticket-id">
+            <div class="field">
+              <span>CPF do Aluno</span>
+              <input type="text" id="cpf-aluno" class="search-input" required placeholder="000.000.000-00">
+            </div>
+            <div class="field">
+              <span>Unidade</span>
+              <select id="unidade" class="search-input" required>
+                <option value="">Selecione...</option>
+                <option value="SEDE">SEDE</option>
+                <option value="LESTE">LESTE</option>
+                <option value="SUL">SUL</option>
+                <option value="NORTE">NORTE</option>
+                <option value="OESTE">OESTE</option>
+              </select>
+            </div>
+            <div class="field">
+              <span>Modalidade</span>
+              <select id="modalidade" class="search-input" required>
+                <option value="">Selecione...</option>
+                <option value="Presencial">Presencial</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="Semipresencial">Semipresencial</option>
+                <option value="EAD">EAD</option>
+              </select>
+            </div>
+            <div class="field">
+              <span>Problema</span>
+              <textarea id="problema" class="search-input" rows="4" required placeholder="Descreva o problema..."></textarea>
+            </div>
+            <div class="field" id="resolucao-field" style="display:none;">
+              <span>Mensagem de Resolução</span>
+              <textarea id="resolucao" class="search-input" rows="3"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top:1rem;">
+              <button type="submit" class="btn btn--accent" id="save-ticket">Salvar</button>
+              <button type="button" class="btn" id="cancel-modal">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
+  </footer>
+
+  <!-- Firebase SDK (deve ser o mesmo usado nas outras páginas) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script>
+    // SUAS CONFIGURAÇÕES DO FIREBASE (copiadas do index.html)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
+      authDomain: "portal-inscricoes-tickets.firebaseapp.com",
+      projectId: "portal-inscricoes-tickets",
+      storageBucket: "portal-inscricoes-tickets.firebasestorage.app",
+      messagingSenderId: "364717584125",
+      appId: "1:364717584125:web:d7099acf6391325c7cd894",
+      measurementId: "G-DW1WGEE9FS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let currentStatus = 'aberto';
+
+    // Verificar autenticação
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = './login.html';
+        return;
+      }
+      const doc = await db.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        currentUser = { uid: user.uid, ...doc.data() };
+        carregarTickets();
+      } else {
+        // Criar perfil se não existir (improvável)
+        const newUser = {
+          email: user.email,
+          nome: user.displayName || 'Usuário',
+          tipo: 'comum',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('users').doc(user.uid).set(newUser);
+        currentUser = { uid: user.uid, ...newUser };
+        carregarTickets();
+      }
+      // Atualizar badge do menu (se existir)
+      const badge = document.getElementById('tickets-badge');
+      if (badge) {
+        // O badge já é atualizado pelo auth.js, mas aqui também podemos garantir
+        let query = db.collection('tickets').where('status', '==', 'aberto');
+        if (currentUser.tipo === 'comum') {
+          query = query.where('criadoPor', '==', currentUser.uid);
+        }
+        query.onSnapshot(snapshot => {
+          badge.textContent = snapshot.size;
+          badge.style.display = snapshot.size === 0 ? 'none' : 'inline-block';
+        });
+      }
+    });
+
+    // Carregar tickets conforme status e tipo
+    function carregarTickets() {
+      let query = db.collection('tickets').where('status', '==', currentStatus);
+      if (currentUser.tipo === 'comum') {
+        query = query.where('criadoPor', '==', currentUser.uid);
+      }
+      query.orderBy('criadoEm', 'desc').onSnapshot(snapshot => {
+        const tickets = [];
+        snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
+        renderTickets(tickets);
+      });
+    }
+
+    // Renderizar lista de tickets
+    function renderTickets(tickets) {
+      const container = document.getElementById('tickets-list');
+      const empty = document.getElementById('tickets-empty');
+      container.innerHTML = '';
+      if (tickets.length === 0) {
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      tickets.forEach(t => {
+        const card = document.createElement('article');
+        card.className = 'unit-block';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 class="unit-group__title" style="margin-bottom:0;">Ticket #${t.id.slice(0,6)}</h3>
+            <span class="badge" style="background:${t.status === 'aberto' ? '#dc2626' : '#10b981'}">${t.status}</span>
+          </div>
+          <p><strong>CPF:</strong> ${t.cpfAluno} | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}</p>
+          <p><strong>Problema:</strong> ${t.problema}</p>
+          ${t.resolucao ? `<p><strong>Resolução:</strong> ${t.resolucao}</p>` : ''}
+          <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+            <button class="btn" onclick="verTicket('${t.id}')">Ver detalhes</button>
+            ${(currentUser.tipo !== 'comum' && t.status === 'aberto') ? `<button class="btn btn--accent" onclick="concluirTicket('${t.id}')">Concluir</button>` : ''}
+            ${(currentUser.tipo !== 'comum' && t.status === 'concluido') ? `<button class="btn" onclick="reabrirTicket('${t.id}')">Reabrir</button>` : ''}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Abrir modal para novo ticket
+    document.getElementById('new-ticket-btn').addEventListener('click', () => {
+      document.getElementById('ticket-id').value = '';
+      document.getElementById('cpf-aluno').value = '';
+      document.getElementById('unidade').value = '';
+      document.getElementById('modalidade').value = '';
+      document.getElementById('problema').value = '';
+      document.getElementById('resolucao').value = '';
+      document.getElementById('resolucao-field').style.display = 'none';
+      document.getElementById('modal-title').textContent = 'Novo Ticket';
+      document.getElementById('ticket-modal').style.display = 'flex';
+    });
+
+    // Salvar ticket (criar ou atualizar)
+    document.getElementById('ticket-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('ticket-id').value;
+      const cpf = document.getElementById('cpf-aluno').value;
+      const unidade = document.getElementById('unidade').value;
+      const modalidade = document.getElementById('modalidade').value;
+      const problema = document.getElementById('problema').value;
+      const resolucao = document.getElementById('resolucao').value;
+
+      if (id) {
+        // Atualizar (concluir) - usado quando admin conclui
+        await db.collection('tickets').doc(id).update({
+          status: 'concluido',
+          resolucao: resolucao,
+          concluidoPor: currentUser.uid,
+          concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // Criar novo
+        await db.collection('tickets').add({
+          cpfAluno: cpf,
+          unidade: unidade,
+          modalidade: modalidade,
+          problema: problema,
+          status: 'aberto',
+          criadoPor: currentUser.uid,
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      fecharModal();
+    });
+
+    // Funções auxiliares
+    window.verTicket = async (id) => {
+      const doc = await db.collection('tickets').doc(id).get();
+      if (!doc.exists) return;
+      const t = doc.data();
+      document.getElementById('ticket-id').value = id;
+      document.getElementById('cpf-aluno').value = t.cpfAluno;
+      document.getElementById('unidade').value = t.unidade;
+      document.getElementById('modalidade').value = t.modalidade;
+      document.getElementById('problema').value = t.problema;
+      document.getElementById('resolucao').value = t.resolucao || '';
+      document.getElementById('resolucao-field').style.display = 'block';
+      document.getElementById('modal-title').textContent = 'Detalhes do Ticket';
+      document.getElementById('ticket-modal').style.display = 'flex';
+    };
+
+    window.concluirTicket = (id) => {
+      const resolucao = prompt('Mensagem de resolução:');
+      if (resolucao) {
+        db.collection('tickets').doc(id).update({
+          status: 'concluido',
+          resolucao,
+          concluidoPor: currentUser.uid,
+          concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    };
+
+    window.reabrirTicket = (id) => {
+      if (confirm('Reabrir este ticket?')) {
+        db.collection('tickets').doc(id).update({
+          status: 'aberto',
+          resolucao: '',
+          reabertoPor: currentUser.uid,
+          reabertoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    };
+
+    function fecharModal() {
+      document.getElementById('ticket-modal').style.display = 'none';
+    }
+
+    document.getElementById('modal-close').addEventListener('click', fecharModal);
+    document.getElementById('cancel-modal').addEventListener('click', fecharModal);
+
+    // Trocar abas (abertos / concluídos)
+    document.querySelectorAll('.tab[data-status]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        currentStatus = tab.dataset.status;
+        carregarTickets();
+      });
+    });
+
+    // Função de logout (chamada pelo botão)
+    window.logout = () => {
+      auth.signOut().then(() => {
+        window.location.href = './index.html';
+      });
+    };
+
+    // Ajustar visibilidade dos links de login/logout (caso auth.js não esteja presente)
+    // Mas como temos autenticação própria, já gerenciamos.
+    // Se o auth.js estiver incluso, ele também fará isso, mas não há problema.
+  </script>
+  <!-- Dark mode (opcional, mesmo script das outras páginas) -->
+  <script src="./assets/js/dark-mode.js"></script>
+  <!-- Se quiser usar o auth.js global, pode incluir também, mas não é obrigatório -->
+  <!-- <script src="./assets/js/auth.js"></script> -->
+</body>
+</html>

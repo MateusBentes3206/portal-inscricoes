@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Gerenciar Usuários</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <div class="top-stripe" aria-hidden="true"></div>
+
+  <main class="container app-shell">
+    <header class="site-header">
+      <h1>Gerenciar Usuários</h1>
+      <p class="site-subtitle">Apenas super administradores</p>
+    </header>
+
+    <nav class="app-nav" aria-label="Navegação principal">
+      <div class="nav-left">
+        <a class="btn btn--nav" href="./index.html">Portal</a>
+        <a class="btn btn--nav" href="./links.html">Central de Links</a>
+        <a class="btn btn--nav" href="./tickets.html">Tickets</a>
+        <a class="btn btn--nav is-active" href="./admin-users.html">Admin</a>
+        <a class="btn btn--nav" href="./login.html" id="login-link" style="display:none;">Login</a>
+        <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
+      </div>
+      <div class="nav-right">
+        <button class="btn btn--nav" type="button" id="dark-mode-toggle">
+          <span class="mode-text">Modo</span>
+          <span class="mode-icon">🌙</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Lista de usuários -->
+    <div id="users-list" class="links-groups"></div>
+    <div id="users-empty" class="empty" hidden>Nenhum usuário encontrado.</div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
+  </footer>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Configuração do Firebase (copie a mesma de index.html)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
+      authDomain: "portal-inscricoes-tickets.firebaseapp.com",
+      projectId: "portal-inscricoes-tickets",
+      storageBucket: "portal-inscricoes-tickets.firebasestorage.app",
+      messagingSenderId: "364717584125",
+      appId: "1:364717584125:web:d7099acf6391325c7cd894",
+      measurementId: "G-DW1WGEE9FS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+
+    // Verificar autenticação e tipo de usuário
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = './login.html';
+        return;
+      }
+
+      // Buscar perfil do usuário
+      const doc = await db.collection('users').doc(user.uid).get();
+      if (!doc.exists) {
+        alert('Perfil não encontrado. Entre em contato com o suporte.');
+        auth.signOut();
+        window.location.href = './login.html';
+        return;
+      }
+
+      currentUser = { uid: user.uid, ...doc.data() };
+
+      // Verificar se é super_admin
+      if (currentUser.tipo !== 'super_admin') {
+        alert('Acesso negado. Você não é super administrador.');
+        window.location.href = './index.html';
+        return;
+      }
+
+      // Carregar lista de usuários
+      carregarUsuarios();
+    });
+
+    // Função para carregar todos os usuários
+    async function carregarUsuarios() {
+      const snapshot = await db.collection('users').get();
+      const users = [];
+      snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+
+      renderUsers(users);
+    }
+
+    // Renderizar a lista de usuários
+    function renderUsers(users) {
+      const container = document.getElementById('users-list');
+      const empty = document.getElementById('users-empty');
+      container.innerHTML = '';
+
+      if (users.length === 0) {
+        empty.hidden = false;
+        return;
+      }
+
+      empty.hidden = true;
+
+      users.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      users.forEach(user => {
+        // Não permitir que o próprio super_admin mude seu tipo (opcional, mas seguro)
+        const isSelf = user.id === currentUser.uid;
+
+        const card = document.createElement('article');
+        card.className = 'unit-block';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 class="unit-group__title" style="margin-bottom:0;">${user.nome || 'Sem nome'}</h3>
+            <span class="badge" style="background:${user.tipo === 'super_admin' ? '#7c3aed' : user.tipo === 'admin' ? '#2563eb' : '#6b7280'}">${user.tipo || 'comum'}</span>
+          </div>
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>UID:</strong> <code>${user.id}</code></p>
+          <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
+            <select class="search-input" id="select-${user.id}" style="width:auto;" ${isSelf ? 'disabled' : ''}>
+              <option value="comum" ${user.tipo === 'comum' ? 'selected' : ''}>Comum</option>
+              <option value="admin" ${user.tipo === 'admin' ? 'selected' : ''}>Admin</option>
+              <option value="super_admin" ${user.tipo === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+            </select>
+            <button class="btn" onclick="alterarTipo('${user.id}')" ${isSelf ? 'disabled' : ''}>Salvar</button>
+            ${isSelf ? '<span style="color: #dc2626; font-size:0.8rem;">(você)</span>' : ''}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Função global para alterar o tipo de um usuário
+    window.alterarTipo = async (uid) => {
+      const select = document.getElementById(`select-${uid}`);
+      const novoTipo = select.value;
+
+      // Confirmação
+      if (!confirm(`Tem certeza que deseja alterar o tipo deste usuário para "${novoTipo}"?`)) return;
+
+      try {
+        await db.collection('users').doc(uid).update({
+          tipo: novoTipo
+        });
+        alert('Tipo alterado com sucesso!');
+        // Recarregar a lista para refletir a mudança
+        carregarUsuarios();
+      } catch (error) {
+        alert('Erro ao alterar tipo: ' + error.message);
+      }
+    };
+
+    // Logout
+    window.logout = () => {
+      auth.signOut().then(() => {
+        window.location.href = './index.html';
+      });
+    };
+  </script>
+
+  <!-- Scripts auxiliares (dark mode) -->
+  <script src="./assets/js/dark-mode.js"></script>
+  <!-- Se quiser usar auth.js, pode incluir, mas não é necessário -->
+</body>
+</html>
