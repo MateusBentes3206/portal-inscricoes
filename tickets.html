@@ -42,10 +42,11 @@
       </div>
     </div>
 
+    <!-- Lista de tickets -->
     <div id="tickets-list" class="links-groups"></div>
     <div id="tickets-empty" class="empty" hidden>Nenhum ticket encontrado.</div>
 
-    <!-- Modal -->
+    <!-- Modal para criar/editar ticket -->
     <div id="ticket-modal" class="modal-overlay" style="display:none;">
       <div class="modal" style="max-width:500px;">
         <div class="modal-head">
@@ -102,10 +103,12 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
+    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -119,26 +122,28 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // 🔥 Persistência LOCAL
+    // PERSISTÊNCIA LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em tickets'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
     let currentUser = null;
     let currentStatus = 'aberto';
-    let authChecked = false; // 🔥 Flag para evitar redirecionamento prematuro
+    let authChecked = false; // Flag para evitar redirecionamento prematuro
 
-    // 🔥 Listener com flag
+    // Listener de autenticação com proteção contra redirecionamento prematuro
     auth.onAuthStateChanged(async (user) => {
-      console.log('🔍 tickets: onAuthStateChanged', user ? user.email : 'null');
+      console.log('🔍 tickets: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+
       if (!authChecked) {
         authChecked = true;
         if (!user) {
-          console.log('tickets: redirecionando para login (usuário não logado)');
+          console.log('tickets: redirecionando para login');
           window.location.href = './login.html';
           return;
         }
-        // Usuário logado, prossegue
+
+        // Usuário logado – carregar perfil e tickets
         try {
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
@@ -155,30 +160,31 @@
             currentUser = { uid: user.uid, ...newUser };
           }
           carregarTickets();
-          // Atualizar badge
-          const badge = document.getElementById('tickets-badge');
-          if (badge) {
-            let query = db.collection('tickets').where('status', '==', 'aberto');
-            if (currentUser.tipo === 'comum') {
-              query = query.where('criadoPor', '==', currentUser.uid);
-            }
-            query.onSnapshot(snapshot => {
-              badge.textContent = snapshot.size;
-              badge.style.display = snapshot.size === 0 ? 'none' : 'inline-block';
-            });
-          }
+          updateMenu(); // Atualiza links de login/logout
         } catch (error) {
-          console.error('Erro ao carregar perfil do usuário:', error);
-          // Talvez redirecionar para uma página de erro, mas não para login
+          console.error('Erro ao carregar perfil:', error);
+          // Se houver erro, talvez redirecionar para login?
+          window.location.href = './login.html';
         }
-      } else {
-        // Se já foi verificado, apenas log
-        console.log('tickets: auth já verificado, usuário:', user ? user.email : 'null');
       }
     });
 
-    // Funções (mantidas)
+    // Atualizar badge e menu
+    function updateMenu() {
+      const loginLink = document.getElementById('login-link');
+      const logoutBtn = document.getElementById('logout-btn');
+      if (currentUser) {
+        if (loginLink) loginLink.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      } else {
+        if (loginLink) loginLink.style.display = 'inline-block';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+      }
+    }
+
+    // Carregar tickets conforme status e tipo
     function carregarTickets() {
+      if (!currentUser) return;
       let query = db.collection('tickets').where('status', '==', currentStatus);
       if (currentUser.tipo === 'comum') {
         query = query.where('criadoPor', '==', currentUser.uid);
@@ -187,9 +193,19 @@
         const tickets = [];
         snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
         renderTickets(tickets);
+        // Atualizar badge
+        const badge = document.getElementById('tickets-badge');
+        if (badge) {
+          let count = tickets.filter(t => t.status === 'aberto').length;
+          badge.textContent = count;
+          badge.style.display = count === 0 ? 'none' : 'inline-block';
+        }
+      }, error => {
+        console.error('Erro ao carregar tickets:', error);
       });
     }
 
+    // Renderizar lista de tickets
     function renderTickets(tickets) {
       const container = document.getElementById('tickets-list');
       const empty = document.getElementById('tickets-empty');
@@ -220,7 +236,7 @@
       });
     }
 
-    // Eventos (mantidos)
+    // Abrir modal para novo ticket
     document.getElementById('new-ticket-btn').addEventListener('click', () => {
       document.getElementById('ticket-id').value = '';
       document.getElementById('cpf-aluno').value = '';
@@ -233,6 +249,7 @@
       document.getElementById('ticket-modal').style.display = 'flex';
     });
 
+    // Salvar ticket (criar ou atualizar)
     document.getElementById('ticket-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
@@ -268,19 +285,24 @@
       }
     });
 
+    // Funções auxiliares
     window.verTicket = async (id) => {
-      const doc = await db.collection('tickets').doc(id).get();
-      if (!doc.exists) return;
-      const t = doc.data();
-      document.getElementById('ticket-id').value = id;
-      document.getElementById('cpf-aluno').value = t.cpfAluno;
-      document.getElementById('unidade').value = t.unidade;
-      document.getElementById('modalidade').value = t.modalidade;
-      document.getElementById('problema').value = t.problema;
-      document.getElementById('resolucao').value = t.resolucao || '';
-      document.getElementById('resolucao-field').style.display = 'block';
-      document.getElementById('modal-title').textContent = 'Detalhes do Ticket';
-      document.getElementById('ticket-modal').style.display = 'flex';
+      try {
+        const doc = await db.collection('tickets').doc(id).get();
+        if (!doc.exists) return;
+        const t = doc.data();
+        document.getElementById('ticket-id').value = id;
+        document.getElementById('cpf-aluno').value = t.cpfAluno;
+        document.getElementById('unidade').value = t.unidade;
+        document.getElementById('modalidade').value = t.modalidade;
+        document.getElementById('problema').value = t.problema;
+        document.getElementById('resolucao').value = t.resolucao || '';
+        document.getElementById('resolucao-field').style.display = 'block';
+        document.getElementById('modal-title').textContent = 'Detalhes do Ticket';
+        document.getElementById('ticket-modal').style.display = 'flex';
+      } catch (error) {
+        console.error('Erro ao carregar ticket:', error);
+      }
     };
 
     window.concluirTicket = (id) => {
@@ -291,7 +313,10 @@
           resolucao,
           concluidoPor: currentUser.uid,
           concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(error => console.error('Erro ao concluir:', error));
+        }).catch(error => {
+          console.error('Erro ao concluir ticket:', error);
+          alert('Erro ao concluir: ' + error.message);
+        });
       }
     };
 
@@ -302,7 +327,10 @@
           resolucao: '',
           reabertoPor: currentUser.uid,
           reabertoEm: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(error => console.error('Erro ao reabrir:', error));
+        }).catch(error => {
+          console.error('Erro ao reabrir ticket:', error);
+          alert('Erro ao reabrir: ' + error.message);
+        });
       }
     };
 
@@ -313,6 +341,7 @@
     document.getElementById('modal-close').addEventListener('click', fecharModal);
     document.getElementById('cancel-modal').addEventListener('click', fecharModal);
 
+    // Trocar abas
     document.querySelectorAll('.tab[data-status]').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
@@ -322,13 +351,17 @@
       });
     });
 
+    // Função de logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
-      }).catch(error => console.error('Erro no logout:', error));
+      }).catch(error => {
+        console.error('Erro no logout:', error);
+      });
     };
   </script>
+
+  <!-- Dark mode -->
   <script src="./assets/js/dark-mode.js"></script>
-  <!-- <script src="./assets/js/auth.js"></script> -->
 </body>
 </html>

@@ -27,7 +27,9 @@
       </div>
     </nav>
 
+    <!-- Área de login/registro -->
     <div class="links-controls" style="max-width: 400px; margin: 0 auto;">
+      <!-- Formulário de Login -->
       <form id="login-form">
         <h2>Entrar</h2>
         <div class="field">
@@ -45,6 +47,7 @@
         Não tem conta? <a href="#" id="show-register">Registrar</a>
       </p>
 
+      <!-- Formulário de Registro (inicialmente oculto) -->
       <form id="register-form" style="display:none; margin-top:1rem;">
         <h3>Registrar</h3>
         <div class="field">
@@ -65,6 +68,7 @@
         </p>
       </form>
 
+      <!-- Mensagem de erro/sucesso -->
       <div id="login-message" class="empty" style="margin-top:1rem;"></div>
     </div>
   </main>
@@ -73,10 +77,12 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
+    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -90,23 +96,24 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // 🔥 Persistência LOCAL
+    // PERSISTÊNCIA LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em login'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
-    // 🔥 Listener de log
+    // Listener para monitorar o estado de autenticação
     auth.onAuthStateChanged(user => {
-      console.log('🔍 login: onAuthStateChanged', user ? user.email : 'null');
+      console.log('🔍 login: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
     });
 
-    // Elementos e eventos (mantidos)
+    // Elementos do DOM
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const showRegisterLink = document.getElementById('show-register');
     const showLoginLink = document.getElementById('show-login');
     const messageDiv = document.getElementById('login-message');
 
+    // Alternar entre os formulários
     showRegisterLink.addEventListener('click', (e) => {
       e.preventDefault();
       loginForm.style.display = 'none';
@@ -121,10 +128,12 @@
       messageDiv.textContent = '';
     });
 
+    // Login
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+
       try {
         await auth.signInWithEmailAndPassword(email, password);
         window.location.href = './tickets.html';
@@ -133,11 +142,13 @@
       }
     });
 
+    // Registro
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const nome = document.getElementById('reg-nome').value;
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
+
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         await db.collection('users').doc(cred.user.uid).set({
@@ -151,7 +162,16 @@
         messageDiv.textContent = 'Erro: ' + error.message;
       }
     });
+
+    // Função de logout (pode ser chamada de outras páginas)
+    window.logout = () => {
+      auth.signOut().then(() => {
+        window.location.href = './index.html';
+      });
+    };
   </script>
+
+  <!-- Script de modo escuro -->
   <script src="./assets/js/dark-mode.js"></script>
 </body>
 </html>
