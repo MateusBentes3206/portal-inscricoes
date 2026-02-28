@@ -59,6 +59,26 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // 🔥 GARANTIR PERSISTÊNCIA LOCAL (já existente, mas com log melhorado)
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => console.log('✅ Persistência LOCAL definida em index'))
+      .catch(error => console.error('❌ Erro na persistência:', error));
+
+    // 🔥 NOVO: Listener para monitorar o estado de autenticação
+    auth.onAuthStateChanged(user => {
+      console.log('🔍 index: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+    });
+
+    // 🔥 NOVO: Função de logout (já existia, mas garantindo que está definida globalmente)
+    window.logout = () => {
+      auth.signOut().then(() => {
+        console.log('Logout realizado');
+        window.location.href = './index.html';
+      }).catch(error => {
+        console.error('Erro no logout:', error);
+      });
+    };
   </script>
 
   <!-- Scripts do projeto -->

@@ -21,7 +21,7 @@
         <a class="btn btn--nav is-active" href="./links.html" aria-current="page">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
-        <!-- NOVO: Links do sistema de tickets -->
+        <!-- Links do sistema de tickets -->
         <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
         <a class="btn btn--nav" href="./login.html" id="login-link">Login</a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
@@ -34,7 +34,7 @@
       </div>
     </nav>
 
-    <!-- Filtros (inalterado) -->
+    <!-- Filtros -->
     <div class="links-controls">
       <div class="links-controls-grid">
         <div class="field">
@@ -58,14 +58,14 @@
       <button class="btn" type="button" data-action="reset-filters">Limpar filtros</button>
     </div>
 
-    <!-- Lista de links (inalterado) -->
+    <!-- Lista de links -->
     <div id="links-groups" class="links-groups"></div>
     <div id="links-empty" class="empty" hidden>Nenhum link encontrado.</div>
     <div class="load-more-wrapper">
       <button id="links-load-more" class="btn" type="button" data-action="load-more" hidden>Carregar mais</button>
     </div>
 
-    <!-- QA (diagnóstico) (inalterado) -->
+    <!-- QA (diagnóstico) -->
     <section class="links-qa">
       <h2>🔍 Controle de qualidade (QA)</h2>
       <ul id="qa-list"></ul>
@@ -76,8 +76,7 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Scripts -->
-  <!-- NOVO: Firebase SDK (deve vir antes dos outros scripts) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
@@ -95,11 +94,32 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // 🔥 GARANTIR PERSISTÊNCIA LOCAL
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => console.log('✅ Persistência LOCAL definida em links'))
+      .catch(error => console.error('❌ Erro na persistência:', error));
+
+    // 🔥 Listener para monitorar o estado de autenticação
+    auth.onAuthStateChanged(user => {
+      console.log('🔍 links: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+    });
+
+    // 🔥 Função de logout global
+    window.logout = () => {
+      auth.signOut().then(() => {
+        console.log('Logout realizado em links');
+        window.location.href = './index.html';
+      }).catch(error => {
+        console.error('Erro no logout:', error);
+      });
+    };
   </script>
-  <!-- NOVO: Script de autenticação global -->
+
+  <!-- Script de autenticação global -->
   <script defer src="./assets/js/auth.js"></script>
 
-  <!-- Scripts existentes (mantenha a ordem original) -->
+  <!-- Scripts existentes -->
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>
