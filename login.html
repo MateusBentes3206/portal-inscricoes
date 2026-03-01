@@ -27,8 +27,8 @@
       </div>
     </nav>
 
-    <!-- Área de login/registro -->
-    <div class="links-controls" style="max-width: 400px; margin: 0 auto;">
+    <!-- Área de login/registro com largura aumentada e altura mínima fixa -->
+    <div class="links-controls" style="max-width: 450px; margin: 0 auto; min-height: 380px;">
       <!-- Formulário de Login -->
       <form id="login-form">
         <h2>Entrar</h2>
@@ -68,7 +68,7 @@
         </p>
       </form>
 
-      <!-- Mensagem de erro estilizada -->
+      <!-- Mensagem de erro -->
       <div id="login-message"></div>
     </div>
   </main>
@@ -82,6 +82,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
+    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -106,23 +107,25 @@
       }
     });
 
+    // Elementos do DOM
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const showRegister = document.getElementById('show-register');
     const showLogin = document.getElementById('show-login');
     const messageDiv = document.getElementById('login-message');
 
+    // Função para traduzir erros do Firebase
     function traduzirErroFirebase(errorCode) {
       const erros = {
-        'auth/invalid-email': 'E-mail inválido. Verifique o formato.',
-        'auth/user-disabled': 'Esta conta foi desativada. Contate o suporte.',
-        'auth/user-not-found': 'Usuário não encontrado. Verifique seu e-mail.',
-        'auth/wrong-password': 'Senha incorreta. Tente novamente.',
+        'auth/invalid-email': 'E-mail inválido.',
+        'auth/user-disabled': 'Esta conta foi desativada.',
+        'auth/user-not-found': 'Usuário não encontrado.',
+        'auth/wrong-password': 'Senha incorreta.',
         'auth/invalid-login-credentials': 'E-mail ou senha incorretos.',
-        'auth/email-already-in-use': 'Este e-mail já está sendo usado por outra conta.',
-        'auth/weak-password': 'A senha deve ter pelo menos 6 caracteres.',
-        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.',
-        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
+        'auth/email-already-in-use': 'Este e-mail já existe',
+        'auth/weak-password': 'Senha muito curta.',
+        'auth/network-request-failed': 'Verifique sua internet.',
+        'auth/too-many-requests': 'Muitas tentativas.',
         'auth/popup-closed-by-user': 'Login cancelado.',
         'auth/cancelled-popup-request': 'Operação cancelada.',
         'auth/internal-error': 'Erro interno. Tente novamente.'
@@ -130,6 +133,7 @@
       return erros[errorCode] || `Erro desconhecido: ${errorCode}`;
     }
 
+    // Alternar entre formulários
     showRegister.addEventListener('click', (e) => {
       e.preventDefault();
       loginForm.style.display = 'none';
@@ -146,31 +150,40 @@
       messageDiv.style.display = 'none';
     });
 
+    // Login
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      console.log('Formulário de login submetido');
+
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      
       messageDiv.textContent = '';
       messageDiv.style.display = 'none';
+
       try {
+        console.log('Tentando login com:', email);
         await auth.signInWithEmailAndPassword(email, password);
       } catch (error) {
-        console.log('Erro no login:', error);
-        console.log('Código:', error.code);
-        console.log('Mensagem original:', error.message);
-        const mensagemTraduzida = traduzirErroFirebase(error.code);
-        messageDiv.textContent = mensagemTraduzida;
+        console.log('Erro no login:', error.code);
+        const mensagem = traduzirErroFirebase(error.code);
+        messageDiv.textContent = mensagem;
         messageDiv.style.display = 'flex';
       }
     });
 
+    // Registro
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      console.log('Formulário de registro submetido');
+
       const nome = document.getElementById('reg-nome').value;
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
+      
       messageDiv.textContent = '';
       messageDiv.style.display = 'none';
+
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         await db.collection('users').doc(cred.user.uid).set({
@@ -179,15 +192,21 @@
           tipo: 'comum',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        console.log('Registro bem-sucedido');
       } catch (error) {
-        console.log('Erro no registro:', error);
-        console.log('Código:', error.code);
-        console.log('Mensagem original:', error.message);
-        const mensagemTraduzida = traduzirErroFirebase(error.code);
-        messageDiv.textContent = mensagemTraduzida;
+        console.log('Erro no registro:', error.code);
+        const mensagem = traduzirErroFirebase(error.code);
+        messageDiv.textContent = mensagem;
         messageDiv.style.display = 'flex';
       }
     });
+
+    // Logout (caso necessário em outras páginas)
+    window.logout = () => {
+      auth.signOut().then(() => {
+        window.location.href = './index.html';
+      });
+    };
   </script>
   <script src="./assets/js/dark-mode.js"></script>
 </body>

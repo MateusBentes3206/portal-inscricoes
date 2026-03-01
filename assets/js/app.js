@@ -294,6 +294,34 @@
       tabsEl.textContent = "";
       CONFIG.COURSE_TABS.forEach(t => tabsEl.appendChild(el("button", { class: "tab", type: "button", "data-action": "set-tab", "data-tab": t.key }, [el("span", { text: t.label })])));
     };
+    // DEBUG visual: verificar quem está quebrando o layout
+setTimeout(() => {
+  const tabs = tabsEl;
+  const chips = chipsEl;
+  const tabBtn = tabs?.querySelector("button.tab");
+  const chipBtn = chips?.querySelector("button.chip");
+
+  console.log("=== DEBUG MODAL LAYOUT ===");
+  if (tabs) {
+    const cs = getComputedStyle(tabs);
+    console.log("modal-tabs", { display: cs.display, flexDir: cs.flexDirection, flexWrap: cs.flexWrap, overflowX: cs.overflowX });
+  } else console.warn("tabsEl não existe");
+
+  if (tabBtn) {
+    const cs = getComputedStyle(tabBtn);
+    console.log("tab button", { display: cs.display, width: cs.width });
+  } else console.warn("nenhuma .tab");
+
+  if (chips) {
+    const cs = getComputedStyle(chips);
+    console.log("chips", { display: cs.display, flexDir: cs.flexDirection, flexWrap: cs.flexWrap });
+  } else console.warn("chipsEl não existe");
+
+  if (chipBtn) {
+    const cs = getComputedStyle(chipBtn);
+    console.log("chip button", { display: cs.display, width: cs.width });
+  } else console.warn("nenhuma .chip");
+}, 0);
     const syncTabs = () => tabsEl.querySelectorAll(".tab").forEach(btn => btn.classList.toggle("is-active", btn.dataset.tab === state.tab));
 
     const loadUnitList = () => {
@@ -335,6 +363,7 @@
     };
     return { open, close };
   })();
+
 
   // ----------------------------- GLOBAL MODAL -----------------------------
   const globalModal = (() => {
