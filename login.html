@@ -68,7 +68,8 @@
         </p>
       </form>
 
-      <div id="login-message" class="empty" style="margin-top:1rem;"></div>
+      <!-- Mensagem de erro estilizada -->
+      <div id="login-message"></div>
     </div>
   </main>
 
@@ -98,25 +99,43 @@
       .then(() => console.log('Persistência LOCAL definida'))
       .catch(error => console.error('Erro na persistência:', error));
 
-    // Se já estiver logado, redireciona para o portal
     auth.onAuthStateChanged(user => {
       if (user) {
+        console.log('Usuário logado, redirecionando para portal.html');
         window.location.href = './portal.html';
       }
     });
 
-    // Elementos do DOM
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const showRegister = document.getElementById('show-register');
     const showLogin = document.getElementById('show-login');
     const messageDiv = document.getElementById('login-message');
 
+    function traduzirErroFirebase(errorCode) {
+      const erros = {
+        'auth/invalid-email': 'E-mail inválido. Verifique o formato.',
+        'auth/user-disabled': 'Esta conta foi desativada. Contate o suporte.',
+        'auth/user-not-found': 'Usuário não encontrado. Verifique seu e-mail.',
+        'auth/wrong-password': 'Senha incorreta. Tente novamente.',
+        'auth/invalid-login-credentials': 'E-mail ou senha incorretos.',
+        'auth/email-already-in-use': 'Este e-mail já está sendo usado por outra conta.',
+        'auth/weak-password': 'A senha deve ter pelo menos 6 caracteres.',
+        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.',
+        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
+        'auth/popup-closed-by-user': 'Login cancelado.',
+        'auth/cancelled-popup-request': 'Operação cancelada.',
+        'auth/internal-error': 'Erro interno. Tente novamente.'
+      };
+      return erros[errorCode] || `Erro desconhecido: ${errorCode}`;
+    }
+
     showRegister.addEventListener('click', (e) => {
       e.preventDefault();
       loginForm.style.display = 'none';
       registerForm.style.display = 'block';
       messageDiv.textContent = '';
+      messageDiv.style.display = 'none';
     });
 
     showLogin.addEventListener('click', (e) => {
@@ -124,17 +143,24 @@
       registerForm.style.display = 'none';
       loginForm.style.display = 'block';
       messageDiv.textContent = '';
+      messageDiv.style.display = 'none';
     });
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      messageDiv.textContent = '';
+      messageDiv.style.display = 'none';
       try {
         await auth.signInWithEmailAndPassword(email, password);
-        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
-        messageDiv.textContent = 'Erro: ' + error.message;
+        console.log('Erro no login:', error);
+        console.log('Código:', error.code);
+        console.log('Mensagem original:', error.message);
+        const mensagemTraduzida = traduzirErroFirebase(error.code);
+        messageDiv.textContent = mensagemTraduzida;
+        messageDiv.style.display = 'flex';
       }
     });
 
@@ -143,6 +169,8 @@
       const nome = document.getElementById('reg-nome').value;
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
+      messageDiv.textContent = '';
+      messageDiv.style.display = 'none';
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         await db.collection('users').doc(cred.user.uid).set({
@@ -151,9 +179,13 @@
           tipo: 'comum',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
-        messageDiv.textContent = 'Erro: ' + error.message;
+        console.log('Erro no registro:', error);
+        console.log('Código:', error.code);
+        console.log('Mensagem original:', error.message);
+        const mensagemTraduzida = traduzirErroFirebase(error.code);
+        messageDiv.textContent = mensagemTraduzida;
+        messageDiv.style.display = 'flex';
       }
     });
   </script>
