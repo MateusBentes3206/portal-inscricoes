@@ -381,7 +381,7 @@
           </div>
           <p>
             <strong>CPF:</strong> 
-            <span class="cpf-copy" onclick="copiarCPF('${t.cpfAluno}')">${t.cpfAluno} </span>
+            <span class="cpf-copy" onclick="copiarCPF('${t.cpfAluno}')">${t.cpfAluno} 📋</span>
             | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}
           </p>
           <p><strong>Criado por:</strong> ${t.nomeCriador || 'Desconhecido'}</p>
@@ -474,11 +474,13 @@
         document.getElementById('resolucao').value = t.resolucao || '';
 
         const isAdmin = currentUser.tipo !== 'comum';
+        const isResponsavel = (t.iniciadoPor === currentUser.uid) || (currentUser.tipo === 'super_admin'); // super_admin também pode
+
         if (isAdmin) {
           document.getElementById('resolucao-field').style.display = 'block';
-          document.getElementById('modal-title').textContent = 'Detalhes do Ticket (Admin)';
-          setModalFieldsState(true);
-          if (t.status === 'em_andamento') {
+          document.getElementById('modal-title').textContent = isResponsavel ? 'Detalhes do Ticket (Responsável)' : 'Detalhes do Ticket (Apenas Visualização)';
+          setModalFieldsState(isResponsavel); // Habilita edição apenas se for responsável ou super_admin
+          if (t.status === 'em_andamento' && isResponsavel) {
             document.getElementById('resolucao-obrigatoria').style.display = 'block';
           } else {
             document.getElementById('resolucao-obrigatoria').style.display = 'none';
@@ -518,14 +520,24 @@
       const resolucao = document.getElementById('resolucao').value.trim();
 
       if (id) {
+        // Atualizar ticket existente (concluir)
         if (currentUser.tipo === 'comum') {
           mostrarNotificacao('Você não tem permissão para concluir tickets.', false);
           return;
         }
 
+        // Buscar o ticket para verificar o responsável
         const docAtual = await db.collection('tickets').doc(id).get();
-        const statusAtual = docAtual.data().status;
-        if (statusAtual === 'em_andamento' && !resolucao) {
+        if (!docAtual.exists) return;
+        const t = docAtual.data();
+
+        // Verifica se é o responsável ou super_admin
+        if (t.iniciadoPor !== currentUser.uid && currentUser.tipo !== 'super_admin') {
+          mostrarNotificacao('Apenas o responsável pode concluir este ticket.', false);
+          return;
+        }
+
+        if (t.status === 'em_andamento' && !resolucao) {
           mostrarNotificacao('A resolução é obrigatória para concluir o ticket.', false);
           return;
         }
@@ -546,6 +558,7 @@
           mostrarNotificacao('Erro ao concluir: ' + error.message, false);
         }
       } else {
+        // Criação de novo ticket
         try {
           const novo = {
             cpfAluno: cpf,
@@ -590,8 +603,23 @@
       }
     };
 
+    // Função concluirTicket modificada para verificar responsável antes de abrir o modal
     window.concluirTicket = (id) => {
-      verTicket(id);
+      // Primeiro, buscar o ticket para verificar o responsável
+      db.collection('tickets').doc(id).get().then(doc => {
+        if (!doc.exists) return;
+        const t = doc.data();
+        // Verifica se o usuário atual é o responsável (iniciadoPor) ou super_admin
+        if (t.iniciadoPor !== currentUser.uid && currentUser.tipo !== 'super_admin') {
+          mostrarNotificacao('Apenas o responsável pode concluir este ticket.', false);
+          return;
+        }
+        // Se for o responsável, abre o modal de detalhes
+        verTicket(id);
+      }).catch(error => {
+        console.error('Erro ao verificar ticket:', error);
+        mostrarNotificacao('Erro ao verificar permissão.', false);
+      });
     };
 
     window.reabrirTicket = (id) => {
