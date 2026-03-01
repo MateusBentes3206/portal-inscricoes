@@ -102,10 +102,12 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
+    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -119,6 +121,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // PERSISTÊNCIA LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em tickets'))
       .catch(error => console.error('❌ Erro na persistência:', error));
@@ -128,6 +131,7 @@
     let authResolved = false;
     let redirectTimeout = null;
 
+    // Listener de autenticação
     auth.onAuthStateChanged(async (user) => {
       console.log('🔍 tickets: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
 
@@ -154,6 +158,7 @@
             await db.collection('users').doc(user.uid).set(newUser);
             currentUser = { uid: user.uid, ...newUser };
           }
+          console.log('Usuário carregado:', currentUser);
           carregarTickets();
           updateMenu();
         } catch (error) {
@@ -173,6 +178,7 @@
       }
     });
 
+    // Atualizar menu (mostrar botão sair)
     function updateMenu() {
       const logoutBtn = document.getElementById('logout-btn');
       if (currentUser) {
@@ -182,27 +188,57 @@
       }
     }
 
+    // Carregar tickets conforme status e tipo
     function carregarTickets() {
-      if (!currentUser) return;
-      let query = db.collection('tickets').where('status', '==', currentStatus);
-      if (currentUser.tipo === 'comum') {
-        query = query.where('criadoPor', '==', currentUser.uid);
+      if (!currentUser) {
+        console.log('carregarTickets: currentUser não definido');
+        return;
       }
-      query.orderBy('criadoEm', 'desc').onSnapshot(snapshot => {
-        const tickets = [];
-        snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
-        renderTickets(tickets);
-        const badge = document.getElementById('tickets-badge');
-        if (badge) {
-          let count = tickets.filter(t => t.status === 'aberto').length;
-          badge.textContent = count;
-          badge.style.display = count === 0 ? 'none' : 'inline-block';
+      console.log('Carregando tickets para status:', currentStatus, 'usuário:', currentUser.uid, 'tipo:', currentUser.tipo);
+
+      // Primeiro, buscar todos os tickets para ver se há documentos (sem filtro)
+      db.collection('tickets').get().then(snapshotAll => {
+        console.log('Total de tickets na coleção (sem filtro):', snapshotAll.size);
+        snapshotAll.forEach(doc => console.log('Ticket bruto:', doc.id, doc.data()));
+        
+        // Agora aplica a query com filtros
+        let query = db.collection('tickets').where('status', '==', currentStatus);
+        if (currentUser.tipo === 'comum') {
+          query = query.where('criadoPor', '==', currentUser.uid);
         }
-      }, error => {
-        console.error('Erro ao carregar tickets:', error);
+        query.orderBy('criadoEm', 'desc').get()
+          .then(snapshot => {
+            console.log('Tickets encontrados com filtro:', snapshot.size);
+            const tickets = [];
+            snapshot.forEach(doc => {
+              console.log('Ticket filtrado:', doc.id, doc.data());
+              tickets.push({ id: doc.id, ...doc.data() });
+            });
+            renderTickets(tickets);
+            atualizarBadge(tickets);
+          })
+          .catch(error => {
+            console.error('Erro na query filtrada:', error);
+            if (error.code === 'failed-precondition') {
+              alert('Ainda há problemas com o índice. Verifique o console para mais detalhes.');
+            }
+          });
+      }).catch(error => {
+        console.error('Erro ao buscar todos os tickets:', error);
       });
     }
 
+    // Atualizar badge com contagem de abertos
+    function atualizarBadge(tickets) {
+      const badge = document.getElementById('tickets-badge');
+      if (badge) {
+        let count = tickets.filter(t => t.status === 'aberto').length;
+        badge.textContent = count;
+        badge.style.display = count === 0 ? 'none' : 'inline-block';
+      }
+    }
+
+    // Renderizar lista de tickets
     function renderTickets(tickets) {
       const container = document.getElementById('tickets-list');
       const empty = document.getElementById('tickets-empty');
@@ -221,6 +257,7 @@
             <span class="badge" style="background:${t.status === 'aberto' ? '#dc2626' : '#10b981'}">${t.status}</span>
           </div>
           <p><strong>CPF:</strong> ${t.cpfAluno} | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}</p>
+          <p><strong>Criado por:</strong> ${t.nomeCriador || 'Desconhecido'}</p>
           <p><strong>Problema:</strong> ${t.problema}</p>
           ${t.resolucao ? `<p><strong>Resolução:</strong> ${t.resolucao}</p>` : ''}
           <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
@@ -233,6 +270,17 @@
       });
     }
 
+    // Função para habilitar/desabilitar campos do modal conforme permissão
+    function setModalFieldsState(editable) {
+      const fields = ['cpf-aluno', 'unidade', 'modalidade', 'problema', 'resolucao'];
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !editable;
+      });
+      document.getElementById('save-ticket').style.display = editable ? 'inline-block' : 'none';
+    }
+
+    // Abrir modal para novo ticket
     document.getElementById('new-ticket-btn').addEventListener('click', () => {
       document.getElementById('ticket-id').value = '';
       document.getElementById('cpf-aluno').value = '';
@@ -242,44 +290,12 @@
       document.getElementById('resolucao').value = '';
       document.getElementById('resolucao-field').style.display = 'none';
       document.getElementById('modal-title').textContent = 'Novo Ticket';
+      // No novo ticket, todos os campos são editáveis (para qualquer usuário)
+      setModalFieldsState(true);
       document.getElementById('ticket-modal').style.display = 'flex';
     });
 
-    document.getElementById('ticket-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        const id = document.getElementById('ticket-id').value;
-        const cpf = document.getElementById('cpf-aluno').value;
-        const unidade = document.getElementById('unidade').value;
-        const modalidade = document.getElementById('modalidade').value;
-        const problema = document.getElementById('problema').value;
-        const resolucao = document.getElementById('resolucao').value;
-
-        if (id) {
-          await db.collection('tickets').doc(id).update({
-            status: 'concluido',
-            resolucao: resolucao,
-            concluidoPor: currentUser.uid,
-            concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        } else {
-          await db.collection('tickets').add({
-            cpfAluno: cpf,
-            unidade: unidade,
-            modalidade: modalidade,
-            problema: problema,
-            status: 'aberto',
-            criadoPor: currentUser.uid,
-            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }
-        fecharModal();
-      } catch (error) {
-        console.error('Erro ao salvar ticket:', error);
-        alert('Erro ao salvar: ' + error.message);
-      }
-    });
-
+    // Ver detalhes de um ticket existente
     window.verTicket = async (id) => {
       try {
         const doc = await db.collection('tickets').doc(id).get();
@@ -291,14 +307,80 @@
         document.getElementById('modalidade').value = t.modalidade;
         document.getElementById('problema').value = t.problema;
         document.getElementById('resolucao').value = t.resolucao || '';
-        document.getElementById('resolucao-field').style.display = 'block';
-        document.getElementById('modal-title').textContent = 'Detalhes do Ticket';
+
+        const isAdmin = currentUser.tipo !== 'comum';
+        if (isAdmin) {
+          // Admin pode ver e editar resolução
+          document.getElementById('resolucao-field').style.display = 'block';
+          document.getElementById('modal-title').textContent = 'Detalhes do Ticket (Admin)';
+          setModalFieldsState(true); // Admin pode editar
+        } else {
+          // Usuário comum: apenas visualização
+          document.getElementById('resolucao-field').style.display = 'none';
+          document.getElementById('modal-title').textContent = 'Detalhes do Ticket';
+          setModalFieldsState(false); // Desabilita todos os campos
+        }
         document.getElementById('ticket-modal').style.display = 'flex';
       } catch (error) {
         console.error('Erro ao carregar ticket:', error);
       }
     };
 
+    // Salvar ticket (criar ou concluir)
+    document.getElementById('ticket-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('ticket-id').value;
+      const cpf = document.getElementById('cpf-aluno').value;
+      const unidade = document.getElementById('unidade').value;
+      const modalidade = document.getElementById('modalidade').value;
+      const problema = document.getElementById('problema').value;
+      const resolucao = document.getElementById('resolucao').value;
+
+      // Se for um ticket existente (id presente), apenas admin pode concluir
+      if (id) {
+        if (currentUser.tipo === 'comum') {
+          alert('Você não tem permissão para concluir tickets.');
+          return;
+        }
+        try {
+          await db.collection('tickets').doc(id).update({
+            status: 'concluido',
+            resolucao: resolucao,
+            concluidoPor: currentUser.uid,
+            concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          console.log('Ticket concluído:', id);
+          fecharModal();
+          carregarTickets();
+        } catch (error) {
+          console.error('Erro ao concluir ticket:', error);
+          alert('Erro ao concluir: ' + error.message);
+        }
+      } else {
+        // Criação de novo ticket (qualquer um pode)
+        try {
+          const novo = {
+            cpfAluno: cpf,
+            unidade: unidade,
+            modalidade: modalidade,
+            problema: problema,
+            status: 'aberto',
+            criadoPor: currentUser.uid,
+            nomeCriador: currentUser.nome || 'Usuário',
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          await db.collection('tickets').add(novo);
+          console.log('Ticket criado:', novo);
+          fecharModal();
+          carregarTickets();
+        } catch (error) {
+          console.error('Erro ao criar ticket:', error);
+          alert('Erro ao criar: ' + error.message);
+        }
+      }
+    });
+
+    // Função para concluir ticket via botão na lista (apenas admin)
     window.concluirTicket = (id) => {
       const resolucao = prompt('Mensagem de resolução:');
       if (resolucao) {
@@ -307,6 +389,9 @@
           resolucao,
           concluidoPor: currentUser.uid,
           concluidoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+          console.log('Ticket concluído:', id);
+          carregarTickets();
         }).catch(error => {
           console.error('Erro ao concluir ticket:', error);
           alert('Erro ao concluir: ' + error.message);
@@ -321,6 +406,9 @@
           resolucao: '',
           reabertoPor: currentUser.uid,
           reabertoEm: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+          console.log('Ticket reaberto:', id);
+          carregarTickets();
         }).catch(error => {
           console.error('Erro ao reabrir ticket:', error);
           alert('Erro ao reabrir: ' + error.message);
@@ -335,6 +423,7 @@
     document.getElementById('modal-close').addEventListener('click', fecharModal);
     document.getElementById('cancel-modal').addEventListener('click', fecharModal);
 
+    // Trocar abas
     document.querySelectorAll('.tab[data-status]').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
@@ -344,6 +433,7 @@
       });
     });
 
+    // Função de logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
