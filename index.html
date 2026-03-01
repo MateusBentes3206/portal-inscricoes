@@ -27,18 +27,17 @@
       </div>
     </nav>
 
-    <!-- Área de login/registro -->
-    <div class="links-controls" style="max-width: 400px; margin: 0 auto;">
+    <div class="links-controls" style="max-width: 500px; margin: 2rem auto; padding: 2rem;">
       <!-- Formulário de Login -->
       <form id="login-form">
         <h2>Entrar</h2>
         <div class="field">
-          <span>E-mail</span>
-          <input type="email" id="email" class="search-input" required>
+          <span>Nome</span>
+          <input type="text" id="login-nome" class="search-input" required placeholder="Seu nome de usuário">
         </div>
         <div class="field">
           <span>Senha</span>
-          <input type="password" id="password" class="search-input" required>
+          <input type="password" id="login-password" class="search-input" required>
         </div>
         <button type="submit" class="btn btn--accent" style="width:100%;">Entrar</button>
       </form>
@@ -52,11 +51,11 @@
         <h3>Registrar</h3>
         <div class="field">
           <span>Nome</span>
-          <input type="text" id="reg-nome" class="search-input" required>
+          <input type="text" id="reg-nome" class="search-input" required placeholder="Escolha um nome único">
         </div>
         <div class="field">
           <span>E-mail</span>
-          <input type="email" id="reg-email" class="search-input" required>
+          <input type="email" id="reg-email" class="search-input" required placeholder="seu@email.com">
         </div>
         <div class="field">
           <span>Senha</span>
@@ -97,7 +96,7 @@
 
     // Persistência LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => console.log('✅ Persistência LOCAL definida em index'))
+      .then(() => console.log('✅ Persistência LOCAL definida'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
     // Se o usuário já estiver logado, redireciona para o portal
@@ -132,14 +131,29 @@
     // Login
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
+      const nome = document.getElementById('login-nome').value.trim();
+      const password = document.getElementById('login-password').value;
 
       try {
+        // Buscar o e-mail correspondente ao nome
+        const snapshot = await db.collection('users')
+          .where('nome', '==', nome)
+          .limit(1)
+          .get();
+
+        if (snapshot.empty) {
+          messageDiv.textContent = 'Nome de usuário não encontrado.';
+          return;
+        }
+
+        const userDoc = snapshot.docs[0];
+        const email = userDoc.data().email;
+
+        // Autenticar com e-mail e senha
         await auth.signInWithEmailAndPassword(email, password);
-        // Redireciona para o portal
-        window.location.href = './portal.html';
+        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
+        console.error('Erro no login:', error);
         messageDiv.textContent = 'Erro: ' + error.message;
       }
     });
@@ -147,20 +161,36 @@
     // Registro
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nome = document.getElementById('reg-nome').value;
-      const email = document.getElementById('reg-email').value;
+      const nome = document.getElementById('reg-nome').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value;
 
       try {
+        // Verificar se o nome já está em uso
+        const nomeSnapshot = await db.collection('users')
+          .where('nome', '==', nome)
+          .limit(1)
+          .get();
+
+        if (!nomeSnapshot.empty) {
+          messageDiv.textContent = 'Este nome de usuário já está em uso. Escolha outro.';
+          return;
+        }
+
+        // Criar usuário no Authentication
         const cred = await auth.createUserWithEmailAndPassword(email, password);
+
+        // Criar perfil no Firestore
         await db.collection('users').doc(cred.user.uid).set({
           nome,
           email,
           tipo: 'comum',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        window.location.href = './portal.html';
+
+        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
+        console.error('Erro no registro:', error);
         messageDiv.textContent = 'Erro: ' + error.message;
       }
     });
