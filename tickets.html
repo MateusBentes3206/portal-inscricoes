@@ -238,37 +238,51 @@
       }
     }
 
-    // Renderizar lista de tickets
-    function renderTickets(tickets) {
-      const container = document.getElementById('tickets-list');
-      const empty = document.getElementById('tickets-empty');
-      container.innerHTML = '';
-      if (tickets.length === 0) {
-        empty.hidden = false;
-        return;
-      }
-      empty.hidden = true;
-      tickets.forEach(t => {
-        const card = document.createElement('article');
-        card.className = 'unit-block';
-        card.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 class="unit-group__title" style="margin-bottom:0;">Ticket #${t.id.slice(0,6)}</h3>
-            <span class="badge" style="background:${t.status === 'aberto' ? '#dc2626' : '#10b981'}">${t.status}</span>
-          </div>
-          <p><strong>CPF:</strong> ${t.cpfAluno} | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}</p>
-          <p><strong>Criado por:</strong> ${t.nomeCriador || 'Desconhecido'}</p>
-          <p><strong>Problema:</strong> ${t.problema}</p>
-          ${t.resolucao ? `<p><strong>Resolução:</strong> ${t.resolucao}</p>` : ''}
-          <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
-            <button class="btn" onclick="verTicket('${t.id}')">Ver detalhes</button>
-            ${(currentUser.tipo !== 'comum' && t.status === 'aberto') ? `<button class="btn btn--accent" onclick="concluirTicket('${t.id}')">Concluir</button>` : ''}
-            ${(currentUser.tipo !== 'comum' && t.status === 'concluido') ? `<button class="btn" onclick="reabrirTicket('${t.id}')">Reabrir</button>` : ''}
-          </div>
-        `;
-        container.appendChild(card);
-      });
+function renderTickets(tickets) {
+  const container = document.getElementById('tickets-list');
+  const empty = document.getElementById('tickets-empty');
+  container.innerHTML = '';
+  if (tickets.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  tickets.forEach(t => {
+    const card = document.createElement('article');
+    card.className = 'unit-block';
+    
+    // Mapeia o status para a classe CSS correta
+    let statusClass = '';
+    let statusText = t.status;
+    if (t.status === 'aberto') {
+      statusClass = 'aberto';
+    } else if (t.status === 'em_andamento') {
+      statusClass = 'em_andamento';
+    } else if (t.status === 'resolvido' || t.status === 'concluido') {
+      statusClass = 'resolvido';
+      statusText = 'concluído'; // opcional: exibir "concluído" em vez de "resolvido"
+    } else {
+      statusClass = 'aberto'; // fallback
     }
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="unit-group__title" style="margin-bottom:0;">Ticket #${t.id.slice(0,6)}</h3>
+        <span class="status-badge ${statusClass}">${statusText}</span>
+      </div>
+      <p><strong>Cpf do Aluno:</strong> ${t.cpfAluno} | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}</p>
+      <p><strong>Criado por:</strong> ${t.nomeCriador || 'Desconhecido'}</p>
+      <p><strong>Problema:</strong> ${t.problema}</p>
+      ${t.resolucao ? `<p><strong>Resolução:</strong> ${t.resolucao}</p>` : ''}
+      <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+        <button class="btn" onclick="verTicket('${t.id}')">Ver detalhes</button>
+        ${(currentUser.tipo !== 'comum' && t.status === 'aberto') ? `<button class="btn btn--accent" onclick="concluirTicket('${t.id}')">Concluir</button>` : ''}
+        ${(currentUser.tipo !== 'comum' && (t.status === 'resolvido' || t.status === 'concluido')) ? `<button class="btn" onclick="reabrirTicket('${t.id}')">Reabrir</button>` : ''}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
 
     // Função para habilitar/desabilitar campos do modal conforme permissão
     function setModalFieldsState(editable) {
