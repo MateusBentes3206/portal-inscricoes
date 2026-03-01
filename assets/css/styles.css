@@ -98,38 +98,45 @@ a:hover { opacity: 0.92; text-decoration: underline; text-decoration-thickness: 
 }
 
 /* Estilo base para botões e elementos interativos */
-.btn, .tab, .chip, .btn-unit, .prices-copy-btn {
+.btn, .tab, .chip, .btn-unit, .prices-copy-btn,
+.app-nav .btn, .btn--nav {
   appearance: none;
-  border: 1px solid var(--accent-border);
-  background: #ffffff;
+  border: 1px solid var(--accent) !important;
+  background: transparent;
   color: var(--accent);
   border-radius: 999px;
   padding: 0.45rem 0.9rem;
   font: inherit;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.18s ease;
 }
 
+/* Hover: fundo preenchido com a cor do tema */
 .btn:hover, .tab:hover, .chip:hover, .btn-unit:hover,
+.prices-copy-btn:hover, .app-nav .btn:hover, .btn--nav:hover,
 .link-card:hover, .result-card:hover, .course:hover,
-[data-action]:hover, .prices-copy-btn:hover {
-  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(0,0,0,0.1);
-  transform: translateY(-1px);
+[data-action]:hover {
+  background: var(--accent);
+  color: #ffffff;
   border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
 }
 
-.btn:focus-visible, .tab:focus-visible, .chip:focus-visible, .btn-unit:focus-visible,
-.search-input:focus-visible, select:focus-visible, .modal-close:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
+/* Botões ativos (página atual, abas ativas) */
 .btn--nav.is-active, .btn--accent, .tab.is-active, .chip.is-active {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
+}
+
+/* Focus state */
+.btn:focus-visible, .tab:focus-visible, .chip:focus-visible, .btn-unit:focus-visible,
+.search-input:focus-visible, select:focus-visible, .modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* Portal */
@@ -265,7 +272,7 @@ a:hover { opacity: 0.92; text-decoration: underline; text-decoration-thickness: 
 
 .search-input, select {
   width: 100%;
-  border: 1px solid var(--accent-border);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.7rem;
   background: #ffffff;
@@ -527,16 +534,19 @@ body.dark-mode .tab,
 body.dark-mode .chip,
 body.dark-mode .btn-unit,
 body.dark-mode .prices-copy-btn,
+body.dark-mode .app-nav .btn,
+body.dark-mode .btn--nav,
 body.dark-mode .search-input,
 body.dark-mode select {
-  background: #334155;
-  border-color: #475569;
+  background: transparent;
+  border-color: var(--accent) !important;
   color: #f1f5f9;
 }
 
 body.dark-mode .btn--nav.is-active,
 body.dark-mode .tab.is-active,
-body.dark-mode .chip.is-active {
+body.dark-mode .chip.is-active,
+body.dark-mode .btn--accent {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
@@ -547,13 +557,16 @@ body.dark-mode .tab:hover,
 body.dark-mode .chip:hover,
 body.dark-mode .btn-unit:hover,
 body.dark-mode .prices-copy-btn:hover,
+body.dark-mode .app-nav .btn:hover,
+body.dark-mode .btn--nav:hover,
 body.dark-mode .link-card:hover,
 body.dark-mode .result-card:hover,
 body.dark-mode .course:hover,
 body.dark-mode [data-action]:hover {
-  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(255,255,255,0.15);
+  background: var(--accent);
+  color: #ffffff;
   border-color: var(--accent);
-  background: #3b4a5f;
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(255,255,255,0.15);
 }
 
 body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.8); }
@@ -731,9 +744,9 @@ body.dark-mode .links-controls {
   width: 100%;
 }
 
-/* Campos de entrada mais destacados */
+/* Campos de entrada com borda de 1px na cor do tema */
 .search-input {
-  border: 2px solid #475569; /* cinza escuro */
+  border: 1px solid var(--accent);
   background: #ffffff;
   color: #1e293b;
   font-size: 1rem;
@@ -749,7 +762,7 @@ body.dark-mode .links-controls {
 
 body.dark-mode .search-input {
   background: #2d3a4f;
-  border-color: #5f6b7a;
+  border-color: var(--accent);
   color: #f1f5f9;
 }
 
@@ -762,7 +775,7 @@ body.dark-mode .search-input:focus {
 .btn--accent {
   background: var(--accent);
   color: #ffffff;
-  border: none;
+  border: 1px solid var(--accent);
   padding: 0.75rem 1.5rem;
   font-weight: 600;
   font-size: 1.1rem;
@@ -805,21 +818,30 @@ body.dark-mode #show-login {
   color: #93c5fd;
 }
 
-/* Mensagem de erro */
+/* Mensagem de erro aprimorada */
 #login-message {
-  display: none; /* ← ADICIONE ESTA LINHA */
+  display: none;
   margin-top: 1.5rem;
-  padding: 0.75rem;
-  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fecaca;
   font-weight: 500;
+  font-size: 0.95rem;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-/* Mostra a mensagem apenas quando tiver conteúdo */
+#login-message::before {
+  content: "⚠️";
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 #login-message:not(:empty) {
-  display: block;
+  display: flex;
 }
 
 body.dark-mode #login-message {
@@ -827,7 +849,6 @@ body.dark-mode #login-message {
   color: #fecaca;
   border-color: #7f1d1d;
 }
-
 /* Espaçamento entre os campos */
 .field {
   margin-bottom: 1.25rem;
