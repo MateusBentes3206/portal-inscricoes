@@ -21,8 +21,12 @@
         <a class="btn btn--nav is-active" href="./links.html" aria-current="page">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
-        <!-- Links de autenticação -->
-        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
+        <!-- Links de autenticação com dois badges -->
+        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">
+          Tickets 
+          <span id="tickets-badge" class="badge" style="background-color:#dc2626;">0</span>
+          <span id="tickets-andamento-badge" class="badge" style="background-color:#f59e0b; margin-left:0.2rem;">0</span>
+        </a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
@@ -73,6 +77,7 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
@@ -118,37 +123,40 @@
           currentUser = { uid: user.uid, ...newUser };
         }
 
-        // Mostrar links
         const ticketsLink = document.getElementById('tickets-link');
         const logoutBtn = document.getElementById('logout-btn');
         if (ticketsLink) ticketsLink.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
 
-        // Atualizar badge
-        atualizarBadge();
+        atualizarBadges();
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
         window.location.href = './index.html';
       }
     });
 
-    async function atualizarBadge() {
+    async function atualizarBadges() {
       if (!currentUser) return;
-      const badge = document.getElementById('tickets-badge');
-      if (!badge) return;
+      const badgeAbertos = document.getElementById('tickets-badge');
+      const badgeAndamento = document.getElementById('tickets-andamento-badge');
+      if (!badgeAbertos || !badgeAndamento) return;
 
-      let query = db.collection('tickets').where('status', '==', 'aberto');
+      let queryAbertos = db.collection('tickets').where('status', '==', 'aberto');
+      let queryAndamento = db.collection('tickets').where('status', '==', 'em_andamento');
+      
       if (currentUser.tipo === 'comum') {
-        query = query.where('criadoPor', '==', currentUser.uid);
+        queryAbertos = queryAbertos.where('criadoPor', '==', currentUser.uid);
+        queryAndamento = queryAndamento.where('criadoPor', '==', currentUser.uid);
       }
 
       try {
-        const snapshot = await query.get();
-        const count = snapshot.size;
-        badge.textContent = count;
-        badge.style.display = count === 0 ? 'none' : 'inline-block';
+        const [snapAbertos, snapAndamento] = await Promise.all([queryAbertos.get(), queryAndamento.get()]);
+        badgeAbertos.textContent = snapAbertos.size;
+        badgeAbertos.style.display = snapAbertos.size === 0 ? 'none' : 'inline-block';
+        badgeAndamento.textContent = snapAndamento.size;
+        badgeAndamento.style.display = snapAndamento.size === 0 ? 'none' : 'inline-block';
       } catch (error) {
-        console.error('Erro ao buscar tickets:', error);
+        console.error('Erro ao atualizar badges:', error);
       }
     }
 
@@ -161,8 +169,7 @@
     };
   </script>
 
-  <!-- Remova ou comente a linha do auth.js se não for mais necessário -->
-  <!-- <script defer src="./assets/js/auth.js"></script> -->
+  <!-- Scripts existentes -->
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>

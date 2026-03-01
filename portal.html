@@ -21,8 +21,12 @@
         <a class="btn btn--nav" href="./links.html">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
-        <!-- Links de autenticação (inicialmente ocultos) -->
-        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
+        <!-- Links de autenticação com dois badges -->
+        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">
+          Tickets 
+          <span id="tickets-badge" class="badge" style="background-color:#dc2626;">0</span>
+          <span id="tickets-andamento-badge" class="badge" style="background-color:#f59e0b; margin-left:0.2rem;">0</span>
+        </a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
@@ -58,12 +62,10 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Persistência LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em portal'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
-    // Variável para armazenar o usuário atual
     let currentUser = null;
 
     auth.onAuthStateChanged(async (user) => {
@@ -73,13 +75,11 @@
         return;
       }
 
-      // Buscar dados do usuário no Firestore
       try {
         const doc = await db.collection('users').doc(user.uid).get();
         if (doc.exists) {
           currentUser = { uid: user.uid, ...doc.data() };
         } else {
-          // Se não existir, criar perfil padrão (improvável)
           const newUser = {
             email: user.email,
             nome: user.displayName || 'Usuário',
@@ -96,36 +96,40 @@
         if (ticketsLink) ticketsLink.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
 
-        // Atualizar badge de tickets
-        atualizarBadge();
+        // Atualizar badges
+        atualizarBadges();
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
         window.location.href = './index.html';
       }
     });
 
-    // Função para atualizar o badge com a contagem de tickets abertos
-    async function atualizarBadge() {
+    // Função para atualizar ambos os badges
+    async function atualizarBadges() {
       if (!currentUser) return;
-      const badge = document.getElementById('tickets-badge');
-      if (!badge) return;
+      const badgeAbertos = document.getElementById('tickets-badge');
+      const badgeAndamento = document.getElementById('tickets-andamento-badge');
+      if (!badgeAbertos || !badgeAndamento) return;
 
-      let query = db.collection('tickets').where('status', '==', 'aberto');
+      let queryAbertos = db.collection('tickets').where('status', '==', 'aberto');
+      let queryAndamento = db.collection('tickets').where('status', '==', 'em_andamento');
+      
       if (currentUser.tipo === 'comum') {
-        query = query.where('criadoPor', '==', currentUser.uid);
+        queryAbertos = queryAbertos.where('criadoPor', '==', currentUser.uid);
+        queryAndamento = queryAndamento.where('criadoPor', '==', currentUser.uid);
       }
 
       try {
-        const snapshot = await query.get();
-        const count = snapshot.size;
-        badge.textContent = count;
-        badge.style.display = count === 0 ? 'none' : 'inline-block';
+        const [snapAbertos, snapAndamento] = await Promise.all([queryAbertos.get(), queryAndamento.get()]);
+        badgeAbertos.textContent = snapAbertos.size;
+        badgeAbertos.style.display = snapAbertos.size === 0 ? 'none' : 'inline-block';
+        badgeAndamento.textContent = snapAndamento.size;
+        badgeAndamento.style.display = snapAndamento.size === 0 ? 'none' : 'inline-block';
       } catch (error) {
-        console.error('Erro ao buscar tickets:', error);
+        console.error('Erro ao atualizar badges:', error);
       }
     }
 
-    // Função de logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
@@ -135,8 +139,7 @@
     };
   </script>
 
-  <!-- Scripts do projeto (remova auth.js se não for mais necessário) -->
-  <!-- <script defer src="./assets/js/auth.js"></script> -->
+  <!-- Scripts do projeto -->
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>

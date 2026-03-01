@@ -1358,4 +1358,11 @@ body.dark-mode .modal {
 
 .modal-title {
   font-size: 1.25rem;
+  .badge-amarelo {
+  background-color: #f59e0b;
+  margin-left: 0.2rem;
+}
+}.badge-amarelo {
+  background-color: #f59e0b;
+  margin-left: 0.2rem;
 }
