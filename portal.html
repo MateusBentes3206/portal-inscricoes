@@ -106,29 +106,54 @@
 
     // Função para atualizar ambos os badges
     async function atualizarBadges() {
-      if (!currentUser) return;
-      const badgeAbertos = document.getElementById('tickets-badge');
-      const badgeAndamento = document.getElementById('tickets-andamento-badge');
-      if (!badgeAbertos || !badgeAndamento) return;
+  if (!currentUser) return;
+  const badgeAbertos = document.getElementById('tickets-badge');
+  const badgeAndamento = document.getElementById('tickets-andamento-badge');
+  if (!badgeAbertos || !badgeAndamento) return;
 
-      let queryAbertos = db.collection('tickets').where('status', '==', 'aberto');
-      let queryAndamento = db.collection('tickets').where('status', '==', 'em_andamento');
-      
-      if (currentUser.tipo === 'comum') {
-        queryAbertos = queryAbertos.where('criadoPor', '==', currentUser.uid);
-        queryAndamento = queryAndamento.where('criadoPor', '==', currentUser.uid);
-      }
+  let queryAbertos = db.collection('tickets').where('status', '==', 'aberto');
+  let queryAndamento;
 
-      try {
-        const [snapAbertos, snapAndamento] = await Promise.all([queryAbertos.get(), queryAndamento.get()]);
-        badgeAbertos.textContent = snapAbertos.size;
-        badgeAbertos.style.display = snapAbertos.size === 0 ? 'none' : 'inline-block';
-        badgeAndamento.textContent = snapAndamento.size;
-        badgeAndamento.style.display = snapAndamento.size === 0 ? 'none' : 'inline-block';
-      } catch (error) {
-        console.error('Erro ao atualizar badges:', error);
+  if (currentUser.tipo === 'comum') {
+    // Usuário comum: vê apenas seus tickets
+    queryAbertos = queryAbertos.where('criadoPor', '==', currentUser.uid);
+    queryAndamento = db.collection('tickets')
+      .where('status', '==', 'em_andamento')
+      .where('criadoPor', '==', currentUser.uid);
+  } else {
+    // Admin/superadmin: vê todos os abertos, mas apenas seus em andamento
+    queryAbertos = queryAbertos; // sem filtro
+    queryAndamento = db.collection('tickets')
+      .where('status', '==', 'em_andamento')
+      .where('iniciadoPor', '==', currentUser.uid);
+  }
+
+  try {
+    const [snapAbertos, snapAndamento] = await Promise.all([queryAbertos.get(), queryAndamento.get()]);
+    badgeAbertos.textContent = snapAbertos.size;
+    badgeAbertos.style.display = snapAbertos.size === 0 ? 'none' : 'inline-block';
+    badgeAndamento.textContent = snapAndamento.size;
+    badgeAndamento.style.display = snapAndamento.size === 0 ? 'none' : 'inline-block';
+  } catch (error) {
+    console.error('Erro ao atualizar badges:', error);
+    if (error.code === 'failed-precondition') {
+      // Exibe uma notificação amigável (opcional)
+      const notificacao = document.getElementById('notificacao');
+      if (notificacao) {
+        notificacao.textContent = 'Índice necessário para badges. Verifique o console.';
+        notificacao.style.backgroundColor = '#dc2626';
+        notificacao.style.display = 'block';
+        setTimeout(() => {
+          notificacao.style.opacity = '0';
+          setTimeout(() => {
+            notificacao.style.display = 'none';
+            notificacao.style.opacity = '1';
+          }, 300);
+        }, 3000);
       }
     }
+  }
+}
 
     window.logout = () => {
       auth.signOut().then(() => {

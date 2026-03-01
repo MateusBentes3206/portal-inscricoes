@@ -313,15 +313,30 @@
       if (e.target === confirmModal) fecharConfirmacao();
     });
 
-    // Função para carregar tickets
+    // === FUNÇÃO PRINCIPAL DE CARREGAR TICKETS ===
     function carregarTickets() {
       if (!currentUser) return;
       console.log('Carregando tickets para status:', currentStatus);
 
-      let query = db.collection('tickets').where('status', '==', currentStatus);
+      let query;
+
       if (currentUser.tipo === 'comum') {
-        query = query.where('criadoPor', '==', currentUser.uid);
+        // Usuário comum: vê apenas tickets que ele criou
+        query = db.collection('tickets')
+          .where('status', '==', currentStatus)
+          .where('criadoPor', '==', currentUser.uid);
+      } else {
+        // Admin/superadmin: se for em_andamento, filtra por responsável; senão, todos
+        if (currentStatus === 'em_andamento') {
+          query = db.collection('tickets')
+            .where('status', '==', currentStatus)
+            .where('iniciadoPor', '==', currentUser.uid);
+        } else {
+          query = db.collection('tickets')
+            .where('status', '==', currentStatus);
+        }
       }
+
       query.orderBy('criadoEm', 'desc').get()
         .then(snapshot => {
           const tickets = [];
@@ -332,7 +347,7 @@
         .catch(error => {
           console.error('Erro na query:', error);
           if (error.code === 'failed-precondition') {
-            mostrarNotificacao('Índice necessário. Verifique o console.', false);
+            mostrarNotificacao('Índice necessário. Verifique o console para o link.', false);
           } else {
             mostrarNotificacao('Erro ao carregar tickets.', false);
           }
@@ -381,7 +396,7 @@
           </div>
           <p>
             <strong>CPF:</strong> 
-            <span class="cpf-copy" onclick="copiarCPF('${t.cpfAluno}')">${t.cpfAluno} </span>
+            <span class="cpf-copy" onclick="copiarCPF('${t.cpfAluno}')">${t.cpfAluno}</span>
             | <strong>Unidade:</strong> ${t.unidade} | <strong>Modalidade:</strong> ${t.modalidade}
           </p>
           <p><strong>Criado por:</strong> ${t.nomeCriador || 'Desconhecido'}</p>
@@ -474,15 +489,18 @@
         document.getElementById('resolucao').value = t.resolucao || '';
 
         const isAdmin = currentUser.tipo !== 'comum';
-        const isResponsavel = (t.iniciadoPor === currentUser.uid) || (currentUser.tipo === 'super_admin'); // super_admin também pode
+        const isResponsavel = (t.iniciadoPor === currentUser.uid) || (currentUser.tipo === 'super_admin');
 
         if (isAdmin) {
           document.getElementById('resolucao-field').style.display = 'block';
-          document.getElementById('modal-title').textContent = isResponsavel ? 'Detalhes do Ticket (Responsável)' : 'Detalhes do Ticket (Apenas Visualização)';
-          setModalFieldsState(isResponsavel); // Habilita edição apenas se for responsável ou super_admin
-          if (t.status === 'em_andamento' && isResponsavel) {
+          // Define título e estado dos campos baseado na permissão
+          if (isResponsavel && t.status === 'em_andamento') {
+            document.getElementById('modal-title').textContent = 'Concluir Ticket';
+            setModalFieldsState(true); // Habilita edição
             document.getElementById('resolucao-obrigatoria').style.display = 'block';
           } else {
+            document.getElementById('modal-title').textContent = isResponsavel ? 'Detalhes do Ticket' : 'Detalhes do Ticket (Apenas Visualização)';
+            setModalFieldsState(false); // Desabilita edição
             document.getElementById('resolucao-obrigatoria').style.display = 'none';
           }
         } else {
@@ -520,24 +538,28 @@
       const resolucao = document.getElementById('resolucao').value.trim();
 
       if (id) {
-        // Atualizar ticket existente (concluir)
+        // Ticket existente: conclusão
         if (currentUser.tipo === 'comum') {
           mostrarNotificacao('Você não tem permissão para concluir tickets.', false);
           return;
         }
 
-        // Buscar o ticket para verificar o responsável
         const docAtual = await db.collection('tickets').doc(id).get();
         if (!docAtual.exists) return;
         const t = docAtual.data();
 
-        // Verifica se é o responsável ou super_admin
+        // Verifica se é responsável ou super_admin
         if (t.iniciadoPor !== currentUser.uid && currentUser.tipo !== 'super_admin') {
           mostrarNotificacao('Apenas o responsável pode concluir este ticket.', false);
           return;
         }
 
-        if (t.status === 'em_andamento' && !resolucao) {
+        if (t.status !== 'em_andamento') {
+          mostrarNotificacao('Este ticket não está em andamento.', false);
+          return;
+        }
+
+        if (!resolucao) {
           mostrarNotificacao('A resolução é obrigatória para concluir o ticket.', false);
           return;
         }
@@ -603,18 +625,15 @@
       }
     };
 
-    // Função concluirTicket modificada para verificar responsável antes de abrir o modal
+    // Função concluirTicket (acionada pelo botão na lista)
     window.concluirTicket = (id) => {
-      // Primeiro, buscar o ticket para verificar o responsável
       db.collection('tickets').doc(id).get().then(doc => {
         if (!doc.exists) return;
         const t = doc.data();
-        // Verifica se o usuário atual é o responsável (iniciadoPor) ou super_admin
         if (t.iniciadoPor !== currentUser.uid && currentUser.tipo !== 'super_admin') {
           mostrarNotificacao('Apenas o responsável pode concluir este ticket.', false);
           return;
         }
-        // Se for o responsável, abre o modal de detalhes
         verTicket(id);
       }).catch(error => {
         console.error('Erro ao verificar ticket:', error);
