@@ -17,10 +17,9 @@
 
     <nav class="app-nav" aria-label="Navegação principal">
       <div class="nav-left">
-        <a class="btn btn--nav" href="./index.html">Portal</a>
+        <a class="btn btn--nav" href="./portal.html">Portal</a>
         <a class="btn btn--nav" href="./links.html">Central de Links</a>
         <a class="btn btn--nav is-active" href="./tickets.html">Tickets <span id="tickets-badge" class="badge">0</span></a>
-        <a class="btn btn--nav" href="./login.html" id="login-link" style="display:none;">Login</a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
@@ -103,12 +102,10 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
-    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -122,34 +119,32 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // PERSISTÊNCIA LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em tickets'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
     let currentUser = null;
     let currentStatus = 'aberto';
-    let authChecked = false; // Flag para evitar redirecionamento prematuro
+    let authResolved = false;
+    let redirectTimeout = null;
 
-    // Listener de autenticação com proteção contra redirecionamento prematuro
     auth.onAuthStateChanged(async (user) => {
       console.log('🔍 tickets: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
 
-      if (!authChecked) {
-        authChecked = true;
-        if (!user) {
-          console.log('tickets: redirecionando para login');
-          window.location.href = './login.html';
-          return;
-        }
+      if (authResolved) return;
 
-        // Usuário logado – carregar perfil e tickets
+      if (user) {
+        if (redirectTimeout) {
+          clearTimeout(redirectTimeout);
+          redirectTimeout = null;
+        }
+        authResolved = true;
+
         try {
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
             currentUser = { uid: user.uid, ...doc.data() };
           } else {
-            // Criar perfil se não existir (improvável)
             const newUser = {
               email: user.email,
               nome: user.displayName || 'Usuário',
@@ -160,29 +155,33 @@
             currentUser = { uid: user.uid, ...newUser };
           }
           carregarTickets();
-          updateMenu(); // Atualiza links de login/logout
+          updateMenu();
         } catch (error) {
           console.error('Erro ao carregar perfil:', error);
-          // Se houver erro, talvez redirecionar para login?
-          window.location.href = './login.html';
+          window.location.href = './index.html';
+        }
+      } else {
+        if (!redirectTimeout) {
+          redirectTimeout = setTimeout(() => {
+            if (!authResolved) {
+              console.log('tickets: timeout – nenhum usuário, redirecionando para login');
+              authResolved = true;
+              window.location.href = './index.html';
+            }
+          }, 500);
         }
       }
     });
 
-    // Atualizar badge e menu
     function updateMenu() {
-      const loginLink = document.getElementById('login-link');
       const logoutBtn = document.getElementById('logout-btn');
       if (currentUser) {
-        if (loginLink) loginLink.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
       } else {
-        if (loginLink) loginLink.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'none';
       }
     }
 
-    // Carregar tickets conforme status e tipo
     function carregarTickets() {
       if (!currentUser) return;
       let query = db.collection('tickets').where('status', '==', currentStatus);
@@ -193,7 +192,6 @@
         const tickets = [];
         snapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
         renderTickets(tickets);
-        // Atualizar badge
         const badge = document.getElementById('tickets-badge');
         if (badge) {
           let count = tickets.filter(t => t.status === 'aberto').length;
@@ -205,7 +203,6 @@
       });
     }
 
-    // Renderizar lista de tickets
     function renderTickets(tickets) {
       const container = document.getElementById('tickets-list');
       const empty = document.getElementById('tickets-empty');
@@ -236,7 +233,6 @@
       });
     }
 
-    // Abrir modal para novo ticket
     document.getElementById('new-ticket-btn').addEventListener('click', () => {
       document.getElementById('ticket-id').value = '';
       document.getElementById('cpf-aluno').value = '';
@@ -249,7 +245,6 @@
       document.getElementById('ticket-modal').style.display = 'flex';
     });
 
-    // Salvar ticket (criar ou atualizar)
     document.getElementById('ticket-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
@@ -285,7 +280,6 @@
       }
     });
 
-    // Funções auxiliares
     window.verTicket = async (id) => {
       try {
         const doc = await db.collection('tickets').doc(id).get();
@@ -341,7 +335,6 @@
     document.getElementById('modal-close').addEventListener('click', fecharModal);
     document.getElementById('cancel-modal').addEventListener('click', fecharModal);
 
-    // Trocar abas
     document.querySelectorAll('.tab[data-status]').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
@@ -351,7 +344,6 @@
       });
     });
 
-    // Função de logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
@@ -361,7 +353,6 @@
     };
   </script>
 
-  <!-- Dark mode -->
   <script src="./assets/js/dark-mode.js"></script>
 </body>
 </html>

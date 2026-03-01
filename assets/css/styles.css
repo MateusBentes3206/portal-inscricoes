@@ -708,3 +708,150 @@ body.dark-mode .prices-copy-btn:hover {
   display: inline-block;
   vertical-align: middle;
 }
+
+/* ===== Melhorias na página de login ===== */
+
+/* Container principal da área de login */
+.links-controls {
+  max-width: 500px !important; /* Aumenta a largura */
+  margin: 2rem auto;
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: var(--shadow-md);
+}
+
+body.dark-mode .links-controls {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+/* Ajustes nos formulários */
+#login-form, #register-form {
+  width: 100%;
+}
+
+/* Campos de entrada mais destacados */
+.search-input {
+  border: 2px solid #475569; /* cinza escuro */
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  outline: none;
+}
+
+body.dark-mode .search-input {
+  background: #2d3a4f;
+  border-color: #5f6b7a;
+  color: #f1f5f9;
+}
+
+body.dark-mode .search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.1);
+}
+
+/* Botão de ação principal (Entrar / Registrar) */
+.btn--accent {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  width: 100%;
+  margin-top: 1rem;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn--accent:hover {
+  background: color-mix(in srgb, var(--accent) 80%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+body.dark-mode .btn--accent {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+body.dark-mode .btn--accent:hover {
+  background: color-mix(in srgb, var(--accent) 70%, white);
+}
+
+/* Links de alternância (Registrar / Voltar para login) */
+#show-register, #show-login {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+#show-register:hover, #show-login:hover {
+  border-bottom-color: var(--accent);
+  opacity: 1;
+}
+
+body.dark-mode #show-register,
+body.dark-mode #show-login {
+  color: #93c5fd;
+}
+
+/* Mensagem de erro */
+#login-message {
+  display: none; /* ← ADICIONE ESTA LINHA */
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-weight: 500;
+}
+
+/* Mostra a mensagem apenas quando tiver conteúdo */
+#login-message:not(:empty) {
+  display: block;
+}
+
+body.dark-mode #login-message {
+  background: #451a1a;
+  color: #fecaca;
+  border-color: #7f1d1d;
+}
+
+/* Espaçamento entre os campos */
+.field {
+  margin-bottom: 1.25rem;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+body.dark-mode .field span {
+  color: #cbd5e1;
+}
+
+/* Títulos */
+h2, h3 {
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+body.dark-mode h2,
+body.dark-mode h3 {
+  color: #f1f5f9;
+}

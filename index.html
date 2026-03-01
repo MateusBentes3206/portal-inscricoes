@@ -3,28 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal de Inscrições - Fametro 2026/1</title>
+  <title>Login - Sistema de Tickets</title>
   <link rel="stylesheet" href="./assets/css/styles.css" />
 </head>
 <body>
-  <div class="top-stripe" aria-hidden="true"></div>
+  <div class="top-stripe"></div>
 
   <main class="container app-shell">
     <header class="site-header">
-      <h1>Portal de Inscrições — Fametro 2026/1</h1>
-      <p class="site-subtitle">Acesso rápido por unidade e modalidade</p>
+      <h1>Acesso ao Sistema de Tickets</h1>
     </header>
 
     <nav class="app-nav" aria-label="Navegação principal">
       <div class="nav-left">
-        <a class="btn btn--nav is-active" href="./index.html" aria-current="page">Portal</a>
+        <a class="btn btn--nav" href="./portal.html">Portal</a>
         <a class="btn btn--nav" href="./links.html">Central de Links</a>
-        <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
-        <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
-        <!-- Novos links de autenticação -->
-        <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
-        <a class="btn btn--nav" href="./login.html" id="login-link">Login</a>
-        <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
         <button class="btn btn--nav" type="button" id="dark-mode-toggle">
@@ -34,19 +27,61 @@
       </div>
     </nav>
 
-    <div id="app" aria-live="polite"></div>
+    <!-- Área de login/registro -->
+    <div class="links-controls" style="max-width: 400px; margin: 0 auto;">
+      <!-- Formulário de Login -->
+      <form id="login-form">
+        <h2>Entrar</h2>
+        <div class="field">
+          <span>E-mail</span>
+          <input type="email" id="email" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>Senha</span>
+          <input type="password" id="password" class="search-input" required>
+        </div>
+        <button type="submit" class="btn btn--accent" style="width:100%;">Entrar</button>
+      </form>
+
+      <p style="margin-top:1rem; text-align:center;">
+        Não tem conta? <a href="#" id="show-register">Registrar</a>
+      </p>
+
+      <!-- Formulário de Registro (inicialmente oculto) -->
+      <form id="register-form" style="display:none; margin-top:1rem;">
+        <h3>Registrar</h3>
+        <div class="field">
+          <span>Nome</span>
+          <input type="text" id="reg-nome" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>E-mail</span>
+          <input type="email" id="reg-email" class="search-input" required>
+        </div>
+        <div class="field">
+          <span>Senha</span>
+          <input type="password" id="reg-password" class="search-input" required>
+        </div>
+        <button type="submit" class="btn btn--accent">Registrar</button>
+        <p style="margin-top:0.5rem;">
+          <a href="#" id="show-login">Voltar para login</a>
+        </p>
+      </form>
+
+      <!-- Mensagem de erro/sucesso -->
+      <div id="login-message" class="empty" style="margin-top:1rem;"></div>
+    </div>
   </main>
 
   <footer class="site-footer">
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Firebase SDK (compatível) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
-    // Suas configurações do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -60,35 +95,83 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // 🔥 GARANTIR PERSISTÊNCIA LOCAL (já existente, mas com log melhorado)
+    // Persistência LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
       .then(() => console.log('✅ Persistência LOCAL definida em index'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
-    // 🔥 NOVO: Listener para monitorar o estado de autenticação
+    // Se o usuário já estiver logado, redireciona para o portal
     auth.onAuthStateChanged(user => {
-      console.log('🔍 index: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+      if (user) {
+        window.location.href = './portal.html';
+      }
     });
 
-    // 🔥 NOVO: Função de logout (já existia, mas garantindo que está definida globalmente)
+    // Elementos do DOM
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterLink = document.getElementById('show-register');
+    const showLoginLink = document.getElementById('show-login');
+    const messageDiv = document.getElementById('login-message');
+
+    // Alternar entre os formulários
+    showRegisterLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+      messageDiv.textContent = '';
+    });
+
+    showLoginLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+      messageDiv.textContent = '';
+    });
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // Redireciona para o portal
+        window.location.href = './portal.html';
+      } catch (error) {
+        messageDiv.textContent = 'Erro: ' + error.message;
+      }
+    });
+
+    // Registro
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById('reg-nome').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection('users').doc(cred.user.uid).set({
+          nome,
+          email,
+          tipo: 'comum',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        window.location.href = './portal.html';
+      } catch (error) {
+        messageDiv.textContent = 'Erro: ' + error.message;
+      }
+    });
+
     window.logout = () => {
       auth.signOut().then(() => {
-        console.log('Logout realizado');
         window.location.href = './index.html';
-      }).catch(error => {
-        console.error('Erro no logout:', error);
       });
     };
   </script>
 
-  <!-- Scripts do projeto -->
-  <script defer src="./assets/js/auth.js"></script>
-  <script defer src="./assets/data/links-data.js"></script>
-  <script defer src="./assets/data/courses-data.js"></script>
-  <script defer src="./assets/data/course_prices_2026_1_data.js"></script>
-  <script defer src="./assets/js/legacy.js"></script>
-  <script defer src="./assets/js/dark-mode.js"></script>
-  <script defer src="./assets/js/modals-shared.js"></script>
-  <script defer src="./assets/js/app.js"></script>
+  <script src="./assets/js/dark-mode.js"></script>
 </body>
 </html>

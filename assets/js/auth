@@ -1,88 +1,27 @@
-// assets/js/auth.js
+// auth.js (apenas para atualizar a interface)
 (() => {
   "use strict";
 
-  // Elementos do menu (serão obtidos dinamicamente)
-  let ticketsLink, ticketsBadge, loginLink, logoutBtn;
-
-  // Atualiza a interface de acordo com o usuário logado
-  const updateUI = (user) => {
-    // Busca os elementos no DOM (podem não existir em todas as páginas)
-    ticketsLink = document.getElementById('tickets-link');
-    ticketsBadge = document.getElementById('tickets-badge');
-    loginLink = document.getElementById('login-link');
-    logoutBtn = document.getElementById('logout-btn');
+  auth.onAuthStateChanged((user) => {
+    const ticketsLink = document.getElementById('tickets-link');
+    const logoutBtn = document.getElementById('logout-btn');
 
     if (user) {
-      // Usuário logado
-      if (loginLink) loginLink.style.display = 'none';
+      // Usuário logado: mostra link de tickets e botão sair
+      if (ticketsLink) ticketsLink.style.display = 'inline-block';
       if (logoutBtn) logoutBtn.style.display = 'inline-block';
+
+      // Aqui você pode também carregar o badge de tickets
       if (ticketsLink) {
-        ticketsLink.style.display = 'inline-block';
-
-        // Busca ou cria o perfil do usuário no Firestore
-        db.collection('users').doc(user.uid).get().then(doc => {
-          if (doc.exists) {
-            window.currentUser = { uid: user.uid, ...doc.data() };
-            setupTicketListener(window.currentUser);
-          } else {
-            // Primeiro acesso: cria um perfil padrão
-            const newUser = {
-              email: user.email,
-              nome: user.displayName || 'Usuário',
-              tipo: 'comum',
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            db.collection('users').doc(user.uid).set(newUser).then(() => {
-              window.currentUser = { uid: user.uid, ...newUser };
-              setupTicketListener(window.currentUser);
-            });
-          }
-        });
+        const badge = document.getElementById('tickets-badge');
+        if (badge) {
+          // Atualizar badge com contagem (pode ser feito via listener)
+        }
       }
     } else {
-      // Nenhum usuário logado
-      if (loginLink) loginLink.style.display = 'inline-block';
-      if (logoutBtn) logoutBtn.style.display = 'none';
+      // Não deve acontecer porque as páginas redirecionam, mas por segurança
       if (ticketsLink) ticketsLink.style.display = 'none';
-      if (ticketsBadge) {
-        ticketsBadge.textContent = '0';
-        ticketsBadge.style.display = 'none';
-      }
-      window.currentUser = null;
+      if (logoutBtn) logoutBtn.style.display = 'none';
     }
-  };
-
-  // Escuta as mudanças na autenticação
-  auth.onAuthStateChanged(updateUI);
-
-  // Configura o listener em tempo real para a contagem de tickets abertos
-  const setupTicketListener = (user) => {
-    if (!user || !ticketsBadge) return;
-
-    let query;
-    if (user.tipo === 'comum') {
-      // Usuário comum: só vê os próprios tickets
-      query = db.collection('tickets')
-        .where('criadoPor', '==', user.uid)
-        .where('status', '==', 'aberto');
-    } else {
-      // Admin ou super admin: vê todos os tickets abertos
-      query = db.collection('tickets')
-        .where('status', '==', 'aberto');
-    }
-
-    query.onSnapshot(snapshot => {
-      const count = snapshot.size;
-      ticketsBadge.textContent = count;
-      ticketsBadge.style.display = count === 0 ? 'none' : 'inline-block';
-    });
-  };
-
-  // Função global de logout (chamada pelo botão)
-  window.logout = () => {
-    auth.signOut().then(() => {
-      window.location.href = './index.html';
-    });
-  };
+  });
 })();

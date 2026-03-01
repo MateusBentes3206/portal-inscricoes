@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Central de Links - Fametro 2026/1</title>
+  <title>Portal de Inscrições - Fametro 2026/1</title>
   <link rel="stylesheet" href="./assets/css/styles.css" />
 </head>
 <body>
@@ -11,17 +11,17 @@
 
   <main class="container app-shell">
     <header class="site-header">
-      <h1>Central de Links — Fametro 2026/1</h1>
-      <p class="site-subtitle">Busca rápida por unidade, modalidade e tipo</p>
+      <h1>Portal de Inscrições — Fametro 2026/1</h1>
+      <p class="site-subtitle">Acesso rápido por unidade e modalidade</p>
     </header>
 
     <nav class="app-nav" aria-label="Navegação principal">
       <div class="nav-left">
-        <a class="btn btn--nav" href="./portal.html">Portal</a>
-        <a class="btn btn--nav is-active" href="./links.html" aria-current="page">Central de Links</a>
+        <a class="btn btn--nav is-active" href="./portal.html" aria-current="page">Portal</a>
+        <a class="btn btn--nav" href="./links.html">Central de Links</a>
         <button class="btn btn--nav" type="button" data-action="open-global-search">Pesquisar cursos</button>
         <button class="btn btn--nav" type="button" data-action="open-prices-menu">Pesquisar preços</button>
-        <!-- Links de autenticação -->
+        <!-- Links de autenticação (inicialmente ocultos) -->
         <a class="btn btn--nav" href="./tickets.html" id="tickets-link" style="display:none;">Tickets <span id="tickets-badge" class="badge">0</span></a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
@@ -33,46 +33,14 @@
       </div>
     </nav>
 
-    <!-- Filtros -->
-    <div class="links-controls">
-      <div class="links-controls-grid">
-        <div class="field">
-          <span>Unidade</span>
-          <select id="filter-unit"></select>
-        </div>
-        <div class="field">
-          <span>Modalidade</span>
-          <select id="filter-modality"></select>
-        </div>
-        <div class="field">
-          <span>Ingresso</span>
-          <select id="filter-type"></select>
-        </div>
-        <div class="field">
-          <span>Buscar...</span>
-          <input type="search" id="filter-query" class="search-input" placeholder="Palavra-chave..." />
-        </div>
-      </div>
-      <div class="links-meta" id="links-meta"></div>
-      <button class="btn" type="button" data-action="reset-filters">Limpar filtros</button>
-    </div>
-
-    <div id="links-groups" class="links-groups"></div>
-    <div id="links-empty" class="empty" hidden>Nenhum link encontrado.</div>
-    <div class="load-more-wrapper">
-      <button id="links-load-more" class="btn" type="button" data-action="load-more" hidden>Carregar mais</button>
-    </div>
-
-    <section class="links-qa">
-      <h2>🔍 Controle de qualidade (QA)</h2>
-      <ul id="qa-list"></ul>
-    </section>
+    <div id="app" aria-live="polite"></div>
   </main>
 
   <footer class="site-footer">
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
@@ -90,24 +58,28 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Persistência LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => console.log('✅ Persistência LOCAL definida em links'))
+      .then(() => console.log('✅ Persistência LOCAL definida em portal'))
       .catch(error => console.error('❌ Erro na persistência:', error));
 
+    // Variável para armazenar o usuário atual
     let currentUser = null;
 
     auth.onAuthStateChanged(async (user) => {
-      console.log('🔍 links: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+      console.log('🔍 portal: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
       if (!user) {
         window.location.href = './index.html';
         return;
       }
 
+      // Buscar dados do usuário no Firestore
       try {
         const doc = await db.collection('users').doc(user.uid).get();
         if (doc.exists) {
           currentUser = { uid: user.uid, ...doc.data() };
         } else {
+          // Se não existir, criar perfil padrão (improvável)
           const newUser = {
             email: user.email,
             nome: user.displayName || 'Usuário',
@@ -118,13 +90,13 @@
           currentUser = { uid: user.uid, ...newUser };
         }
 
-        // Mostrar links
+        // Mostrar links de tickets e logout
         const ticketsLink = document.getElementById('tickets-link');
         const logoutBtn = document.getElementById('logout-btn');
         if (ticketsLink) ticketsLink.style.display = 'inline-block';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
 
-        // Atualizar badge
+        // Atualizar badge de tickets
         atualizarBadge();
       } catch (error) {
         console.error('Erro ao carregar perfil:', error);
@@ -132,6 +104,7 @@
       }
     });
 
+    // Função para atualizar o badge com a contagem de tickets abertos
     async function atualizarBadge() {
       if (!currentUser) return;
       const badge = document.getElementById('tickets-badge');
@@ -152,6 +125,7 @@
       }
     }
 
+    // Função de logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
@@ -161,14 +135,14 @@
     };
   </script>
 
-  <!-- Remova ou comente a linha do auth.js se não for mais necessário -->
+  <!-- Scripts do projeto (remova auth.js se não for mais necessário) -->
   <!-- <script defer src="./assets/js/auth.js"></script> -->
   <script defer src="./assets/data/links-data.js"></script>
   <script defer src="./assets/data/courses-data.js"></script>
   <script defer src="./assets/data/course_prices_2026_1_data.js"></script>
   <script defer src="./assets/js/legacy.js"></script>
   <script defer src="./assets/js/dark-mode.js"></script>
-  <script defer src="./assets/js/links-page.js"></script>
+  <script defer src="./assets/js/modals-shared.js"></script>
   <script defer src="./assets/js/app.js"></script>
 </body>
 </html>

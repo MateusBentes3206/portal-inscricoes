@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login - Sistema de Tickets</title>
+  <title>Login - Sistema Fametro</title>
   <link rel="stylesheet" href="./assets/css/styles.css" />
 </head>
 <body>
@@ -11,13 +11,13 @@
 
   <main class="container app-shell">
     <header class="site-header">
-      <h1>Acesso ao Sistema de Tickets</h1>
+      <h1>Acesso ao Sistema</h1>
+      <p class="site-subtitle">Faça login para continuar</p>
     </header>
 
     <nav class="app-nav" aria-label="Navegação principal">
       <div class="nav-left">
-        <a class="btn btn--nav" href="./index.html">Portal</a>
-        <a class="btn btn--nav" href="./links.html">Central de Links</a>
+        <!-- Sem links internos aqui, apenas modo escuro -->
       </div>
       <div class="nav-right">
         <button class="btn btn--nav" type="button" id="dark-mode-toggle">
@@ -47,7 +47,7 @@
         Não tem conta? <a href="#" id="show-register">Registrar</a>
       </p>
 
-      <!-- Formulário de Registro (inicialmente oculto) -->
+      <!-- Formulário de Registro -->
       <form id="register-form" style="display:none; margin-top:1rem;">
         <h3>Registrar</h3>
         <div class="field">
@@ -68,7 +68,6 @@
         </p>
       </form>
 
-      <!-- Mensagem de erro/sucesso -->
       <div id="login-message" class="empty" style="margin-top:1rem;"></div>
     </div>
   </main>
@@ -82,7 +81,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
-    // CONFIGURAÇÕES DO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -96,59 +94,55 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // PERSISTÊNCIA LOCAL
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => console.log('✅ Persistência LOCAL definida em login'))
-      .catch(error => console.error('❌ Erro na persistência:', error));
+      .then(() => console.log('Persistência LOCAL definida'))
+      .catch(error => console.error('Erro na persistência:', error));
 
-    // Listener para monitorar o estado de autenticação
+    // Se já estiver logado, redireciona para o portal
     auth.onAuthStateChanged(user => {
-      console.log('🔍 login: onAuthStateChanged', user ? `Usuário: ${user.email}` : 'Nenhum usuário');
+      if (user) {
+        window.location.href = './portal.html';
+      }
     });
 
     // Elementos do DOM
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
-    const showRegisterLink = document.getElementById('show-register');
-    const showLoginLink = document.getElementById('show-login');
+    const showRegister = document.getElementById('show-register');
+    const showLogin = document.getElementById('show-login');
     const messageDiv = document.getElementById('login-message');
 
-    // Alternar entre os formulários
-    showRegisterLink.addEventListener('click', (e) => {
+    showRegister.addEventListener('click', (e) => {
       e.preventDefault();
       loginForm.style.display = 'none';
       registerForm.style.display = 'block';
       messageDiv.textContent = '';
     });
 
-    showLoginLink.addEventListener('click', (e) => {
+    showLogin.addEventListener('click', (e) => {
       e.preventDefault();
       registerForm.style.display = 'none';
       loginForm.style.display = 'block';
       messageDiv.textContent = '';
     });
 
-    // Login
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-
       try {
         await auth.signInWithEmailAndPassword(email, password);
-        window.location.href = './tickets.html';
+        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
         messageDiv.textContent = 'Erro: ' + error.message;
       }
     });
 
-    // Registro
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const nome = document.getElementById('reg-nome').value;
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
-
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         await db.collection('users').doc(cred.user.uid).set({
@@ -157,21 +151,12 @@
           tipo: 'comum',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        window.location.href = './tickets.html';
+        // Redirecionamento será feito pelo onAuthStateChanged
       } catch (error) {
         messageDiv.textContent = 'Erro: ' + error.message;
       }
     });
-
-    // Função de logout (pode ser chamada de outras páginas)
-    window.logout = () => {
-      auth.signOut().then(() => {
-        window.location.href = './index.html';
-      });
-    };
   </script>
-
-  <!-- Script de modo escuro -->
   <script src="./assets/js/dark-mode.js"></script>
 </body>
 </html>

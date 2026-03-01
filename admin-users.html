@@ -17,11 +17,10 @@
 
     <nav class="app-nav" aria-label="Navegação principal">
       <div class="nav-left">
-        <a class="btn btn--nav" href="./index.html">Portal</a>
+        <a class="btn btn--nav" href="./portal.html">Portal</a>
         <a class="btn btn--nav" href="./links.html">Central de Links</a>
         <a class="btn btn--nav" href="./tickets.html">Tickets</a>
         <a class="btn btn--nav is-active" href="./admin-users.html">Admin</a>
-        <a class="btn btn--nav" href="./login.html" id="login-link" style="display:none;">Login</a>
         <button class="btn btn--nav" id="logout-btn" onclick="logout()" style="display:none;">Sair</button>
       </div>
       <div class="nav-right">
@@ -41,12 +40,10 @@
     <p>© 2026 Nawk &amp; Bentes – Todos os direitos reservados</p>
   </footer>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
   <script>
-    // Configuração do Firebase (copie a mesma de index.html)
     const firebaseConfig = {
       apiKey: "AIzaSyBqKuf4gC-UCzhrQu3samKeZxVK7kN9Ym4",
       authDomain: "portal-inscricoes-tickets.firebaseapp.com",
@@ -60,47 +57,53 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => console.log('✅ Persistência LOCAL definida em admin'))
+      .catch(error => console.error('❌ Erro na persistência:', error));
+
     let currentUser = null;
 
-    // Verificar autenticação e tipo de usuário
     auth.onAuthStateChanged(async (user) => {
       if (!user) {
-        window.location.href = './login.html';
-        return;
-      }
-
-      // Buscar perfil do usuário
-      const doc = await db.collection('users').doc(user.uid).get();
-      if (!doc.exists) {
-        alert('Perfil não encontrado. Entre em contato com o suporte.');
-        auth.signOut();
-        window.location.href = './login.html';
-        return;
-      }
-
-      currentUser = { uid: user.uid, ...doc.data() };
-
-      // Verificar se é super_admin
-      if (currentUser.tipo !== 'super_admin') {
-        alert('Acesso negado. Você não é super administrador.');
         window.location.href = './index.html';
         return;
       }
 
-      // Carregar lista de usuários
-      carregarUsuarios();
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          alert('Perfil não encontrado. Entre em contato com o suporte.');
+          auth.signOut();
+          window.location.href = './index.html';
+          return;
+        }
+
+        currentUser = { uid: user.uid, ...doc.data() };
+
+        if (currentUser.tipo !== 'super_admin') {
+          alert('Acesso negado. Você não é super administrador.');
+          window.location.href = './portal.html';
+          return;
+        }
+
+        // Mostrar botão de logout
+        document.getElementById('logout-btn').style.display = 'inline-block';
+
+        // Carregar lista de usuários
+        carregarUsuarios();
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+        window.location.href = './index.html';
+      }
     });
 
-    // Função para carregar todos os usuários
     async function carregarUsuarios() {
       const snapshot = await db.collection('users').get();
       const users = [];
       snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
-
       renderUsers(users);
     }
 
-    // Renderizar a lista de usuários
     function renderUsers(users) {
       const container = document.getElementById('users-list');
       const empty = document.getElementById('users-empty');
@@ -112,11 +115,9 @@
       }
 
       empty.hidden = true;
-
       users.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
       users.forEach(user => {
-        // Não permitir que o próprio super_admin mude seu tipo (opcional, mas seguro)
         const isSelf = user.id === currentUser.uid;
 
         const card = document.createElement('article');
@@ -142,27 +143,21 @@
       });
     }
 
-    // Função global para alterar o tipo de um usuário
     window.alterarTipo = async (uid) => {
       const select = document.getElementById(`select-${uid}`);
       const novoTipo = select.value;
 
-      // Confirmação
       if (!confirm(`Tem certeza que deseja alterar o tipo deste usuário para "${novoTipo}"?`)) return;
 
       try {
-        await db.collection('users').doc(uid).update({
-          tipo: novoTipo
-        });
+        await db.collection('users').doc(uid).update({ tipo: novoTipo });
         alert('Tipo alterado com sucesso!');
-        // Recarregar a lista para refletir a mudança
         carregarUsuarios();
       } catch (error) {
         alert('Erro ao alterar tipo: ' + error.message);
       }
     };
 
-    // Logout
     window.logout = () => {
       auth.signOut().then(() => {
         window.location.href = './index.html';
@@ -170,8 +165,6 @@
     };
   </script>
 
-  <!-- Scripts auxiliares (dark mode) -->
   <script src="./assets/js/dark-mode.js"></script>
-  <!-- Se quiser usar auth.js, pode incluir, mas não é necessário -->
 </body>
 </html>
