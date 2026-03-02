@@ -4,10 +4,8 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(clients.openWindow('./tickets.html'));
 });
 
-// Escuta mensagens da página para tocar som (via cliente)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'play-sound') {
-    // Notifica todas as páginas abertas para tocar o som
     self.clients.matchAll().then(clients => {
       clients.forEach(client => {
         client.postMessage({ type: 'play-sound', sound: event.data.sound });
@@ -16,7 +14,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Quando receber uma notificação push (se usar FCM no futuro)
+// Para notificações push (não usamos, mas pode ficar)
 self.addEventListener('push', (event) => {
   const data = event.data.json();
   const options = {
