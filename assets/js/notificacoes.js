@@ -1,130 +1,159 @@
 // assets/js/notificacoes.js
-(async () => {
-  console.log('Iniciando script de notificações');
+(() => {
+  'use strict';
 
-  // Verifica suporte
+  // Verifica suporte do navegador
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    console.log('Notificações não suportadas');
+    console.log('❌ Notificações não suportadas');
     return;
   }
 
-  // Aguarda o Firebase Auth estar pronto
+  // Chave para localStorage
+  const STORAGE_KEY_ABERTOS = 'notificadosAbertos';
+  const STORAGE_KEY_CONCLUIDOS = 'notificadosConcluidos';
+
+  // Carrega conjuntos do localStorage
+  function carregarNotificados() {
+    const abertos = new Set();
+    const concluidos = new Set();
+    try {
+      const savedAbertos = localStorage.getItem(STORAGE_KEY_ABERTOS);
+      if (savedAbertos) {
+        JSON.parse(savedAbertos).forEach(id => abertos.add(id));
+      }
+      const savedConcluidos = localStorage.getItem(STORAGE_KEY_CONCLUIDOS);
+      if (savedConcluidos) {
+        JSON.parse(savedConcluidos).forEach(id => concluidos.add(id));
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar notificados do localStorage', e);
+    }
+    return { abertos, concluidos };
+  }
+
+  // Salva conjuntos no localStorage
+  function salvarNotificados(abertos, concluidos) {
+    try {
+      localStorage.setItem(STORAGE_KEY_ABERTOS, JSON.stringify(Array.from(abertos)));
+      localStorage.setItem(STORAGE_KEY_CONCLUIDOS, JSON.stringify(Array.from(concluidos)));
+    } catch (e) {
+      console.warn('Erro ao salvar notificados', e);
+    }
+  }
+
+  // Carrega estado inicial
+  let { abertos: notificadosAbertos, concluidos: notificadosConcluidos } = carregarNotificados();
+
+  // Elemento de áudio (pré-carregado)
+  const audio = new Audio('/assets/notification.mp3');
+  audio.load();
+
+  // Função para tocar som (com tratamento de autoplay)
+  function tocarSom() {
+    audio.play().catch(e => console.log('⚠️ Autoplay bloqueado:', e));
+  }
+
+  // Função principal de verificação
+  async function verificarNotificacoes(user) {
+    if (!user) return;
+    console.log('🔍 Verificando notificações...');
+
+    const db = firebase.firestore();
+
+    // ========== 1. Verificar novos tickets ABERTOS (para admins) ==========
+    // Busca o tipo do usuário
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    const userTipo = userDoc.data()?.tipo;
+
+    if (userTipo === 'admin' || userTipo === 'super_admin') {
+      const abertosSnap = await db.collection('tickets')
+        .where('status', '==', 'aberto')
+        .orderBy('criadoEm', 'desc')
+        .limit(5) // busca os últimos 5 para evitar muitas leituras
+        .get();
+
+      abertosSnap.forEach(doc => {
+        const ticketId = doc.id;
+
+        // Se ainda não notificamos este ticket
+        if (!notificadosAbertos.has(ticketId)) {
+          notificadosAbertos.add(ticketId);
+
+          // Exibe notificação
+          new Notification('🎫 Novo Ticket Aberto', {
+            body: `Ticket #${ticketId.slice(0,6)} - ${doc.data().problema.substring(0,50)}...`,
+            icon: '/assets/icons/icon-192x192.png', // opcional
+            silent: false
+          });
+
+          // Toca o som
+          tocarSom();
+
+          console.log('🔔 Notificação de abertura enviada', ticketId);
+        }
+      });
+    }
+
+    // ========== 2. Verificar tickets CONCLUÍDOS (para o criador) ==========
+    const concluidosSnap = await db.collection('tickets')
+      .where('status', '==', 'concluido')
+      .where('criadoPor', '==', user.uid)
+      .orderBy('concluidoEm', 'desc')
+      .limit(5)
+      .get();
+
+    concluidosSnap.forEach(doc => {
+      const ticketId = doc.id;
+
+      if (!notificadosConcluidos.has(ticketId)) {
+        notificadosConcluidos.add(ticketId);
+
+        new Notification('✅ Ticket Concluído', {
+          body: `Seu ticket #${ticketId.slice(0,6)} foi resolvido.`,
+          icon: '/assets/icons/icon-192x192.png',
+          silent: false
+        });
+
+        tocarSom();
+
+        console.log('🔔 Notificação de conclusão enviada', ticketId);
+      }
+    });
+
+    // Salva os conjuntos atualizados no localStorage
+    salvarNotificados(notificadosAbertos, notificadosConcluidos);
+  }
+
+  // ========== Inicialização do sistema ==========
   firebase.auth().onAuthStateChanged(async (user) => {
-    console.log('Auth state changed, user:', user ? user.email : 'null');
     if (!user) {
-      console.log('Usuário não logado – notificações desativadas');
+      console.log('👤 Usuário não logado – notificações desativadas');
       return;
     }
 
-    // Solicita permissão se necessário
+    console.log('👤 Usuário logado – iniciando notificações');
+
+    // Solicitar permissão se necessário
     if (Notification.permission === 'default') {
-      console.log('Solicitando permissão...');
       const permission = await Notification.requestPermission();
-      console.log('Permissão:', permission);
       if (permission !== 'granted') {
-        console.log('Permissão negada');
+        console.log('❌ Permissão negada');
         return;
       }
-    } else if (Notification.permission === 'denied') {
-      console.log('Permissão bloqueada pelo usuário');
-      return;
-    } else {
-      console.log('Permissão já concedida');
     }
 
-    // Registrar Service Worker
+    // Registrar Service Worker (se ainda não registrado)
     try {
       const registration = await navigator.serviceWorker.register('/service-worker.js');
-      console.log('Service Worker registrado com sucesso');
-
-      // Elemento de áudio
-      const audio = new Audio('/assets/notification.mp3');
-      audio.load();
-      console.log('Áudio carregado');
-
-      // Variáveis para controle de tickets já notificados
-      let ultimoTicketAbertoId = null;
-      let ultimoTicketConcluidoId = null;
-
-      // Função para tocar som
-      function tocarSom() {
-        console.log('Tentando tocar som');
-        audio.play().then(() => {
-          console.log('Som tocado');
-        }).catch(e => {
-          console.log('Erro ao tocar som (autoplay bloqueado?):', e);
-        });
-      }
-
-      // Função de polling
-      async function verificarNotificacoes() {
-        console.log('Verificando notificações...');
-        const user = firebase.auth().currentUser;
-        if (!user) return;
-
-        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-        if (!userDoc.exists) return;
-        const userTipo = userDoc.data().tipo;
-
-        // Verificar novos tickets abertos (para admins)
-        if (userTipo === 'admin' || userTipo === 'super_admin') {
-          const abertosSnap = await firebase.firestore()
-            .collection('tickets')
-            .where('status', '==', 'aberto')
-            .orderBy('criadoEm', 'desc')
-            .limit(1)
-            .get();
-
-          if (!abertosSnap.empty) {
-            const ticket = abertosSnap.docs[0];
-            if (ticket.id !== ultimoTicketAbertoId) {
-              ultimoTicketAbertoId = ticket.id;
-              console.log('Novo ticket aberto detectado:', ticket.id);
-
-              // Mostrar notificação
-              registration.showNotification('🎫 Novo Ticket Aberto', {
-                body: `Ticket #${ticket.id.slice(0,6)} - ${ticket.data().problema.substring(0,50)}...`,
-                icon: '/assets/icons/icon-192x192.png'
-              });
-
-              // Tocar som
-              tocarSom();
-            }
-          }
-        }
-
-        // Verificar tickets concluídos (para o criador)
-        const concluidosSnap = await firebase.firestore()
-          .collection('tickets')
-          .where('status', '==', 'concluido')
-          .where('criadoPor', '==', user.uid)
-          .orderBy('concluidoEm', 'desc')
-          .limit(1)
-          .get();
-
-        if (!concluidosSnap.empty) {
-          const ticket = concluidosSnap.docs[0];
-          if (ticket.id !== ultimoTicketConcluidoId) {
-            ultimoTicketConcluidoId = ticket.id;
-            console.log('Ticket concluído detectado:', ticket.id);
-
-            registration.showNotification('✅ Ticket Concluído', {
-              body: `Seu ticket #${ticket.id.slice(0,6)} foi resolvido.`,
-              icon: '/assets/icons/icon-192x192.png'
-            });
-
-            tocarSom();
-          }
-        }
-      }
-
-      // Iniciar polling a cada 15 segundos
-      setInterval(verificarNotificacoes, 15000);
-      // Chamar uma vez imediatamente
-      verificarNotificacoes();
-
-    } catch (error) {
-      console.error('Erro ao registrar Service Worker:', error);
+      console.log('✅ Service Worker registrado', registration);
+    } catch (err) {
+      console.error('❌ Erro ao registrar Service Worker:', err);
     }
+
+    // Iniciar polling a cada 30 segundos
+    setInterval(() => verificarNotificacoes(user), 30000);
+
+    // Executar uma verificação imediata
+    verificarNotificacoes(user);
   });
 })();
