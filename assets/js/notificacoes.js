@@ -119,7 +119,7 @@
       }
 
       // Iniciar polling a cada 15 segundos
-      setInterval(verificarNotificacoes, 5000);
+      setInterval(verificarNotificacoes, 15000);
       // Chamar uma vez imediatamente
       verificarNotificacoes();
 
